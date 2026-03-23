@@ -26,6 +26,24 @@ No copying API keys. No switching between terminals and dashboards. No "please p
 
 ---
 
+## What Can It Do?
+
+Autopilot is a **general-purpose autonomous agent** — not limited to any specific service or workflow. It handles anything you'd normally do outside your code editor:
+
+- **Deploy code** — Vercel, Netlify, Railway, Cloudflare, Fly.io, any platform
+- **Set up databases** — Create Supabase projects, write migrations, run SQL, configure auth and RLS
+- **Manage infrastructure** — Cloudflare Workers, R2 buckets, KV stores, DNS records, SSL certificates
+- **Configure services** — Payment providers (Stripe, Razorpay), email (SendGrid, Resend), monitoring (Sentry, Datadog), auth (Clerk, Auth0), or anything with a CLI or web dashboard
+- **Handle git workflows** — Commits, branches, PRs, issues, GitHub Actions, releases
+- **Browse the web** — Logs into dashboards, fills forms, clicks buttons, reads pages, navigates settings via Playwright
+- **Install and configure tools** — CLIs, MCP servers, dependencies, environment setup
+- **Acquire credentials autonomously** — Logs into service dashboards via browser, generates API tokens, stores them in macOS Keychain
+- **Teach itself new services** — Encounters something unknown? Researches the docs, creates a registry file, installs the CLI, adds safety rules, keeps going
+
+The 5 pre-built service files (Vercel, Supabase, GitHub, Cloudflare, Razorpay) are just a head start. When Autopilot encounters any service not in the registry, it researches it, learns it, and expands itself — all inline, without stopping to ask.
+
+---
+
 ## How It Works
 
 ```
@@ -149,16 +167,29 @@ cd autopilot
 # Start Autopilot
 claude --agent autopilot
 
-# Give it any task
-> Deploy this to Vercel
-> Set up Supabase with user auth tables
-> Configure Stripe payments
-> Set up a CI/CD pipeline on GitHub Actions
-> Get me a Cloudflare R2 bucket
-> Connect this to any service you've never seen before
+# Deploy and host
+> Deploy this to Vercel with environment variables from Supabase
+
+# Databases
+> Set up Supabase with user auth tables, API keys, and usage tracking
+
+# Payments
+> Configure Stripe payments with webhooks for subscription billing
+
+# Infrastructure
+> Create a Cloudflare R2 bucket for image storage and set up a Worker for resizing
+
+# CI/CD
+> Set up GitHub Actions to run tests on PR and deploy to Vercel on merge to main
+
+# Multiple services at once
+> I need this running in production with a Postgres database, Stripe payments, and Sentry monitoring
+
+# Services it's never seen before
+> Set up Resend for transactional emails and Upstash for Redis caching
 ```
 
-Autopilot figures out the rest. First time with a service, it asks for your login credentials once. Every subsequent interaction is fully autonomous (except 2FA codes — those need your phone).
+Autopilot figures out the rest. If it's a service it hasn't seen before, it researches the docs, creates a registry file, installs the CLI, and keeps going. First time with a service, it asks for your login credentials once. Every subsequent interaction is fully autonomous (except 2FA codes — those need your phone).
 
 ---
 
