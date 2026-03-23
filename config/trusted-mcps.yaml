@@ -1,0 +1,191 @@
+# Trusted MCP Servers Whitelist
+#
+# Autopilot can install these WITHOUT asking. They've been vetted.
+# For non-whitelisted MCPs, autopilot must explain and get user approval.
+# Once approved, the user (or autopilot with permission) adds it here.
+#
+# Format:
+#   - name: Display name
+#     package: npm package or install command (the source of truth for identity)
+#     source: official | verified | community
+#     category: what it does
+#     notes: when to use it
+#
+# Source levels:
+#   official   = Anthropic / ModelContextProtocol org / service provider's own package
+#   verified   = well-known publisher, 500+ stars, actively maintained
+#   community  = everything else (requires user approval to add here)
+
+# =============================================================================
+# ALREADY INSTALLED (for reference — autopilot knows these exist)
+# =============================================================================
+
+installed:
+  - name: context7
+    package: "@upstash/context7-mcp"
+    source: verified
+    category: documentation
+
+  - name: filesystem
+    package: "@modelcontextprotocol/server-filesystem"
+    source: official
+    category: filesystem
+
+  - name: github
+    type: http
+    source: official
+    category: source-control
+
+  - name: jcodemunch
+    package: jcodemunch-mcp
+    source: community
+    category: code-analysis
+
+  - name: memory
+    package: "@modelcontextprotocol/server-memory"
+    source: official
+    category: persistence
+
+  - name: sequential-thinking
+    package: "@modelcontextprotocol/server-sequential-thinking"
+    source: official
+    category: reasoning
+
+  - name: shadcn-ui
+    package: local (~/MCPs/shadcn-ui-mcp-server/)
+    source: verified
+    category: ui-components
+
+  - name: playwright
+    package: local (~/MCPs/playwright-mcp/)
+    source: official
+    category: browser-automation
+
+  - name: magicui
+    package: local (~/MCPs/mcp-main/)
+    source: verified
+    category: ui-components
+
+# =============================================================================
+# WHITELISTED (autopilot can install these silently when needed)
+# =============================================================================
+
+whitelisted:
+  # --- Official Anthropic / MCP org servers ---
+  - name: postgres
+    package: "@modelcontextprotocol/server-postgres"
+    source: official
+    category: database
+    notes: Direct PostgreSQL access. Use when Supabase CLI isn't enough or for non-Supabase Postgres.
+
+  - name: sqlite
+    package: "@modelcontextprotocol/server-sqlite"
+    source: official
+    category: database
+    notes: Local SQLite database operations.
+
+  - name: puppeteer
+    package: "@modelcontextprotocol/server-puppeteer"
+    source: official
+    category: browser-automation
+    notes: Alternative to Playwright. Use for headless screenshot/PDF generation (relevant for RenderKit).
+
+  - name: fetch
+    package: "@modelcontextprotocol/server-fetch"
+    source: official
+    category: http
+    notes: HTTP requests with better control than WebFetch. Good for API testing.
+
+  - name: git
+    package: "@modelcontextprotocol/server-git"
+    source: official
+    category: source-control
+    notes: Direct git operations via MCP. Complements gh CLI and GitHub MCP.
+
+  - name: redis
+    package: "@modelcontextprotocol/server-redis"
+    source: official
+    category: database
+    notes: Redis/Valkey operations. Good for caching layers.
+
+  # --- Service provider official MCPs ---
+  - name: supabase
+    package: "@supabase/mcp-server"
+    source: official
+    category: database
+    notes: Official Supabase MCP. Direct database, auth, storage operations without CLI.
+
+  - name: stripe
+    package: "@stripe/mcp"
+    source: official
+    category: payments
+    notes: Official Stripe MCP. Payment operations, customer management.
+
+  - name: cloudflare
+    package: "@cloudflare/mcp-server-cloudflare"
+    source: official
+    category: infrastructure
+    notes: Official Cloudflare MCP. Workers, R2, KV, DNS management.
+
+  - name: sentry
+    package: "@sentry/mcp-server"
+    source: official
+    category: monitoring
+    notes: Error tracking and performance monitoring.
+
+  - name: firebase
+    package: "@anthropic-ai/firebase-mcp"
+    source: official
+    category: infrastructure
+    notes: Firebase/GCP operations.
+
+  - name: vercel
+    package: "@vercel/mcp"
+    source: official
+    category: deployment
+    notes: Official Vercel MCP. Deployments, env vars, project management.
+
+  # --- Well-known verified community MCPs ---
+  - name: docker
+    package: "@modelcontextprotocol/server-docker"
+    source: verified
+    category: infrastructure
+    notes: Docker container and image management.
+
+  - name: slack
+    package: "@anthropic-ai/slack-mcp"
+    source: official
+    category: messaging
+    notes: Slack messaging and channel management.
+
+  - name: linear
+    package: "@anthropic-ai/linear-mcp"
+    source: official
+    category: project-management
+    notes: Linear issue tracking and project management.
+
+  - name: notion
+    package: "@anthropic-ai/notion-mcp"
+    source: official
+    category: documentation
+    notes: Notion page and database operations.
+
+  - name: brave-search
+    package: "@anthropic-ai/brave-search-mcp"
+    source: official
+    category: search
+    notes: Web search via Brave. Alternative to WebSearch.
+
+  - name: everart
+    package: "@anthropic-ai/everart-mcp"
+    source: official
+    category: image-generation
+    notes: AI image generation.
+
+# =============================================================================
+# CANDIDATES (discovered by autopilot, pending user approval)
+# =============================================================================
+# When autopilot finds a non-whitelisted MCP, it adds it here with details.
+# User reviews and either moves to whitelisted or removes.
+
+candidates: []

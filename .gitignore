@@ -1,0 +1,25 @@
+# Credentials — NEVER commit
+.env
+.env.*
+*.key
+*.pem
+credentials.json
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Node
+node_modules/
+
+# Temporary
+*.tmp
+*.bak
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/

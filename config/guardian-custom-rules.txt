@@ -1,0 +1,15 @@
+# Guardian Custom Rules
+#
+# The autopilot agent can ADD rules here when it discovers new dangerous patterns.
+# Each line is a case-insensitive regex pattern that will block matching Bash commands.
+# Lines starting with # are comments.
+#
+# Format: CATEGORY|pattern|reason
+# Example: FINANCIAL|stripe.*charges.*create|Creating real Stripe charges
+#
+# RULES:
+# - Autopilot can ONLY append to this file, never edit or remove existing rules
+# - The built-in guardian patterns (in guardian.sh) cannot be modified by autopilot
+# - Each rule makes the system MORE restrictive, never less
+#
+
