@@ -83,19 +83,34 @@ ok "jq available"
 
 info "Installing Autopilot..."
 
-# Determine source: if running from cloned repo or via curl
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Determine source: running from cloned repo or via curl pipe?
+SCRIPT_DIR=""
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ "${BASH_SOURCE[0]}" != "bash" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || true
+fi
 
-if [ -f "$SCRIPT_DIR/agent/autopilot.md" ]; then
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/agent/autopilot.md" ]; then
     # Running from cloned repo
     SOURCE_DIR="$SCRIPT_DIR"
     info "Installing from local clone: $SOURCE_DIR"
 else
-    # Running via curl — clone first
-    info "Cloning repository..."
+    # Running via curl or script not in repo — clone the repo
+    info "Downloading Autopilot..."
+
+    # Check git is available
+    if ! command -v git &>/dev/null; then
+        info "Installing git via Xcode Command Line Tools..."
+        xcode-select --install 2>/dev/null || true
+        # Wait for install
+        until command -v git &>/dev/null; do
+            sleep 2
+        done
+    fi
+
     TMP_DIR=$(mktemp -d)
-    git clone --depth 1 "$REPO_URL" "$TMP_DIR/autopilot" 2>/dev/null
+    git clone --depth 1 "$REPO_URL" "$TMP_DIR/autopilot"
     SOURCE_DIR="$TMP_DIR/autopilot"
+    ok "Downloaded from GitHub"
 fi
 
 # Create directories
@@ -227,18 +242,10 @@ else
     warn "Some guardian tests failed — check $INSTALL_DIR/bin/test-guardian.sh"
 fi
 
-# ─── Optional: Install CLIs ───────────────────────────────────────────────────
+# ─── Install CLIs ──────────────────────────────────────────────────────────────
 
-echo ""
-echo -e "${BOLD}Optional: Install recommended CLIs?${NC}"
-echo "  This installs: gh (GitHub), vercel, supabase"
-echo "  Autopilot can also install these on-demand when needed."
-echo ""
-read -p "Install CLIs now? [y/N] " -n 1 -r
-echo ""
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    "$INSTALL_DIR/bin/setup-clis.sh"
-fi
+info "Installing recommended CLIs..."
+"$INSTALL_DIR/bin/setup-clis.sh" || warn "Some CLIs failed to install — Autopilot will retry on-demand"
 
 # ─── Clean Up ──────────────────────────────────────────────────────────────────
 
