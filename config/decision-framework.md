@@ -4,9 +4,9 @@ Rules for when to act autonomously vs. consult the user.
 
 ---
 
-## Level 1: JUST DO IT (no notification needed)
+## Level 1: JUST DO IT (brief notification)
 
-Act silently. These are safe, reversible, local, or read-only.
+Act immediately. Include a brief note of what you did so the user stays informed.
 
 - Reading files, exploring codebases, searching code
 - Installing declared dependencies (`npm install`, `pip install -r requirements.txt`)

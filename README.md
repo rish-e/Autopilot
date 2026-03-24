@@ -128,7 +128,7 @@ Maintains a whitelist of trusted MCP servers. Whitelisted MCPs install silently 
 
 | Level | Action | Examples |
 |-------|--------|---------|
-| 1 — Just do it | No notification | `npm install`, `git push`, read files, install CLIs |
+| 1 — Just do it | Brief note | `npm install`, `git push`, read files, install CLIs |
 | 2 — Do it, notify | Brief note | Preview deploys, create branches, generate API tokens |
 | 3 — Ask first | Wait for approval | Production deploys, destructive DB ops, paid resources |
 | 4 — Must ask | Show exact command | Spending money, sending messages, publishing packages |

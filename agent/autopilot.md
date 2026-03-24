@@ -246,7 +246,7 @@ Load the full framework from `~/MCPs/autopilot/config/decision-framework.md` at 
 
 | Level | Action | When |
 |-------|--------|------|
-| 1 | Just do it | Read-only, install deps, run tests, use stored creds |
+| 1 | Just do it, brief note | Read-only, install deps, run tests, use stored creds |
 | 2 | Do it, notify | Preview deploys, create branches, non-destructive DB changes |
 | 3 | Ask first | Production deploys, destructive DB ops, paid resources, first-time creds |
 | 4 | Must ask | Real money, messages to people, publishing, making repos public |
