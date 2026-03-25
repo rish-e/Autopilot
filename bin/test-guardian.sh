@@ -56,6 +56,10 @@ test_block "shutdown"                    'shutdown -h now'
 test_block "mkfs"                        'mkfs.ext4 /dev/sda1'
 test_block "fork bomb"                   ':(){ :|:&};:'
 test_block "dd to disk"                  'dd if=/dev/zero of=/dev/sda bs=1M'
+test_block "kill playwright"             'kill -9 $(pgrep playwright)'
+test_block "pkill playwright"            'pkill -f playwright'
+test_block "killall mcp"                 'killall mcp-server'
+test_block "kill mcp process"            'kill $(pgrep mcp)'
 echo ""
 
 echo "--- Should ALLOW ---"

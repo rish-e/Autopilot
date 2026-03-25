@@ -121,6 +121,9 @@ A PreToolUse hook that runs before every Bash command. It's a shell script — d
 ### Smart Permissions
 All tools auto-approved (same speed as `--dangerously-skip-permissions`), with the Guardian catching dangerous patterns. Safe commands fly through with zero prompts. Dangerous commands are hard-blocked before they execute.
 
+### Browser Recovery
+The Playwright browser can die during long sessions — it happens. Autopilot handles it gracefully: it immediately falls back to CLI tools (which work without a browser), and only asks you to restart your session if the browser is truly needed (e.g., first-time login to a new service). Guardian rules prevent the agent from making it worse by killing MCP processes.
+
 ### MCP Auto-Discovery
 Maintains a whitelist of trusted MCP servers. Whitelisted MCPs install silently when needed. Unknown MCPs: Autopilot explains what it found, why it's useful, and asks once. Approved MCPs are whitelisted forever.
 
@@ -201,7 +204,7 @@ Autopilot figures out the rest. If it's a service it hasn't seen before, it rese
     keychain.sh          # macOS Keychain wrapper (get/set/delete/list/has)
     guardian.sh           # PreToolUse safety hook (hard-blocks dangerous commands)
     setup-clis.sh         # CLI installer (gh, vercel, supabase, wrangler, etc.)
-    test-guardian.sh      # 41-test suite for the guardian
+    test-guardian.sh      # 45-test suite for the guardian
   config/
     decision-framework.md # When to act vs. ask (5 levels)
     guardian-custom-rules.txt  # Append-only blocklist (expands with new services)
@@ -223,7 +226,7 @@ Autopilot figures out the rest. If it's a service it hasn't seen before, it rese
 
 Autopilot's safety is layered. The Guardian provides **hard enforcement** that the AI cannot bypass. The Decision Framework provides **intelligent classification** that the AI follows.
 
-### What the Guardian Blocks (41 tested patterns)
+### What the Guardian Blocks (45 tested patterns)
 
 | Category | Examples |
 |----------|---------|
@@ -234,6 +237,7 @@ Autopilot's safety is layered. The Guardian provides **hard enforcement** that t
 | **Production deploys** | `vercel deploy --prod`, `terraform destroy` |
 | **Account changes** | `gh repo edit --visibility public`, `gh repo delete` |
 | **Financial** | Creating Stripe charges, sending emails |
+| **MCP process killing** | `kill`/`pkill`/`killall` targeting Playwright or MCP servers |
 
 ### What's Auto-Approved (zero prompt)
 
@@ -325,6 +329,7 @@ Edit `~/MCPs/autopilot/config/trusted-mcps.yaml` and add to the `whitelisted` se
 
 ### Technical
 - **macOS only** — uses macOS Keychain (Linux/Windows support welcome as PRs)
+- **Browser sessions expire** — Playwright's browser instance can die during long sessions. Autopilot falls back to CLI automatically, but if you need browser automation for a new service, restart your Claude Code session. Once credentials are in Keychain, the browser is rarely needed.
 - **Browser UIs change** — Playwright steps in service registry can break when dashboards redesign
 - **New MCPs need a restart** — installed MCPs take effect next Claude Code session
 - **No automatic rollback** — if a deploy goes wrong, you fix it manually
