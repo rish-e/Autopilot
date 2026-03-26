@@ -163,10 +163,11 @@ cd autopilot
 
 ### Requirements
 
-- **macOS** (uses macOS Keychain for credential storage)
+- **macOS, Linux, or Windows** (Git Bash / WSL)
 - **Claude Code** installed
-- **Homebrew** (installer will set it up if missing)
 - **Node.js** (installer will set it up if missing)
+- **Credential store**: macOS Keychain (auto) / `secret-tool` on Linux (installer installs it) / Windows Credential Manager (built-in)
+- **Package manager**: Homebrew (macOS), apt/dnf/pacman (Linux), choco/winget/scoop (Windows)
 
 ---
 
@@ -349,7 +350,7 @@ Edit `~/MCPs/autopilot/config/trusted-mcps.yaml` and add to the `whitelisted` se
 | Hard safety rails | Yes (Guardian hook) | No (sandbox only) | No (sandbox only) | Partial (permission prompts) |
 | Self-expanding service knowledge | Yes | No | No | No |
 | MCP auto-discovery | Yes (whitelist-based) | No (no MCP) | Partial | No |
-| Credential vault | Yes (macOS Keychain) | Session-scoped | VM-scoped | No built-in |
+| Credential vault | Yes (OS-native: Keychain / libsecret / Credential Manager) | Session-scoped | VM-scoped | No built-in |
 | Smart auto-approve | Yes (Guardian + allowlist) | N/A (sandbox) | N/A (sandbox) | Manual approval |
 | Append-only safety expansion | Yes | No | No | No |
 | Open source | Yes (MIT) | No | No | Yes (CLI, not agents) |
@@ -365,7 +366,6 @@ Edit `~/MCPs/autopilot/config/trusted-mcps.yaml` and add to the `whitelisted` se
 - **Payment method setup** — PCI-compliant forms resist automation
 
 ### Technical
-- **macOS only** — uses macOS Keychain (Linux/Windows support welcome as PRs)
 - **Browser can still crash** — Stability flags reduce browser deaths significantly, but can't prevent all crashes. Autopilot falls back to CLI automatically. If you need browser automation after a crash, restart your Claude Code session. Login sessions persist in the browser profile.
 - **Browser UIs change** — Playwright steps in service registry can break when dashboards redesign
 - **New MCPs need a restart** — installed MCPs take effect next Claude Code session

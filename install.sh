@@ -40,16 +40,72 @@ echo -e "${BOLD}Fully Autonomous Claude Code Agent${NC}"
 echo -e "Self-expanding | Browser automation | Hard safety rails"
 echo ""
 
-# ─── Preflight Checks ─────────────────────────────────────────────────────────
+# ─── Detect Platform ────────────────────────────────────────────────────────
+
+detect_platform() {
+    case "$(uname -s)" in
+        Darwin)  echo "macos" ;;
+        Linux)
+            if grep -qiE '(microsoft|wsl)' /proc/version 2>/dev/null; then
+                echo "wsl"
+            else
+                echo "linux"
+            fi
+            ;;
+        MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+        *)       echo "unknown" ;;
+    esac
+}
+
+PLATFORM=$(detect_platform)
+info "Detected platform: $PLATFORM"
+
+# ─── Package Manager Helper ─────────────────────────────────────────────────
+
+pkg_install() {
+    local pkg="$1"
+    case "$PLATFORM" in
+        macos)
+            brew install "$pkg"
+            ;;
+        linux|wsl)
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get install -y "$pkg"
+            elif command -v dnf &>/dev/null; then
+                sudo dnf install -y "$pkg"
+            elif command -v pacman &>/dev/null; then
+                sudo pacman -S --noconfirm "$pkg"
+            elif command -v brew &>/dev/null; then
+                brew install "$pkg"
+            else
+                fail "No supported package manager found. Install '$pkg' manually."
+                return 1
+            fi
+            ;;
+        windows)
+            if command -v choco &>/dev/null; then
+                choco install -y "$pkg"
+            elif command -v winget &>/dev/null; then
+                winget install --accept-package-agreements --accept-source-agreements "$pkg"
+            elif command -v scoop &>/dev/null; then
+                scoop install "$pkg"
+            else
+                fail "No supported package manager found. Install '$pkg' manually (choco, winget, or scoop)."
+                return 1
+            fi
+            ;;
+    esac
+}
+
+# ─── Preflight Checks ──────────────────────────────────────────────────────
 
 info "Checking prerequisites..."
 
-# Check OS
-if [[ "$(uname)" != "Darwin" ]]; then
-    fail "Autopilot currently supports macOS only (uses macOS Keychain)."
+if [ "$PLATFORM" = "unknown" ]; then
+    fail "Unsupported platform: $(uname -s). Autopilot supports macOS, Linux, and Windows (Git Bash/WSL)."
     exit 1
 fi
-ok "macOS detected"
+ok "Platform: $PLATFORM"
 
 # Check Claude Code
 if ! command -v claude &>/dev/null; then
@@ -58,28 +114,66 @@ if ! command -v claude &>/dev/null; then
 fi
 ok "Claude Code installed"
 
-# Check Homebrew
-if ! command -v brew &>/dev/null; then
-    warn "Homebrew not found. Installing..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-fi
-ok "Homebrew available"
+# Platform-specific prerequisites
+case "$PLATFORM" in
+    macos)
+        if ! command -v brew &>/dev/null; then
+            warn "Homebrew not found. Installing..."
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi
+        ok "Homebrew available"
+        ;;
+    linux|wsl)
+        # Check for credential store
+        if ! command -v secret-tool &>/dev/null; then
+            warn "secret-tool not found. Installing libsecret-tools..."
+            if command -v apt-get &>/dev/null; then
+                sudo apt-get install -y libsecret-tools
+            elif command -v dnf &>/dev/null; then
+                sudo dnf install -y libsecret
+            elif command -v pacman &>/dev/null; then
+                sudo pacman -S --noconfirm libsecret
+            else
+                warn "Could not install secret-tool automatically. Install libsecret-tools manually."
+            fi
+        fi
+        if command -v secret-tool &>/dev/null; then
+            ok "secret-tool available (credential store)"
+        else
+            warn "secret-tool not available — credentials will need manual configuration"
+        fi
+        ;;
+    windows)
+        # cmdkey is built into Windows
+        if command -v cmdkey.exe &>/dev/null || command -v cmdkey &>/dev/null; then
+            ok "Windows Credential Manager available"
+        else
+            warn "cmdkey not found — ensure Windows system tools are in PATH"
+        fi
+        ;;
+esac
 
 # Check Node.js
 if ! command -v node &>/dev/null; then
-    warn "Node.js not found. Installing via Homebrew..."
-    brew install node
+    warn "Node.js not found. Installing..."
+    case "$PLATFORM" in
+        macos) brew install node ;;
+        linux|wsl) pkg_install "nodejs" || pkg_install "node" ;;
+        windows) pkg_install "nodejs" ;;
+    esac
 fi
 ok "Node.js $(node --version)"
 
 # Check jq
 if ! command -v jq &>/dev/null; then
     info "Installing jq..."
-    brew install jq
+    pkg_install "jq" || warn "Could not install jq — install manually"
 fi
-ok "jq available"
+if command -v jq &>/dev/null; then
+    ok "jq available"
+fi
 
-# ─── Install Files ─────────────────────────────────────────────────────────────
+# ─── Install Files ──────────────────────────────────────────────────────────
 
 info "Installing Autopilot..."
 
@@ -90,21 +184,21 @@ if [ -n "${BASH_SOURCE[0]:-}" ] && [ "${BASH_SOURCE[0]}" != "bash" ]; then
 fi
 
 if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/agent/autopilot.md" ]; then
-    # Running from cloned repo
     SOURCE_DIR="$SCRIPT_DIR"
     info "Installing from local clone: $SOURCE_DIR"
 else
-    # Running via curl or script not in repo — clone the repo
     info "Downloading Autopilot..."
 
-    # Check git is available
     if ! command -v git &>/dev/null; then
-        info "Installing git via Xcode Command Line Tools..."
-        xcode-select --install 2>/dev/null || true
-        # Wait for install
-        until command -v git &>/dev/null; do
-            sleep 2
-        done
+        case "$PLATFORM" in
+            macos)
+                info "Installing git via Xcode Command Line Tools..."
+                xcode-select --install 2>/dev/null || true
+                until command -v git &>/dev/null; do sleep 2; done
+                ;;
+            linux|wsl) pkg_install "git" ;;
+            windows) pkg_install "git" ;;
+        esac
     fi
 
     TMP_DIR=$(mktemp -d)
@@ -152,30 +246,25 @@ ok "Agent definition installed at $AGENT_DIR/autopilot.md"
 chmod +x "$INSTALL_DIR/bin/"*.sh
 ok "Scripts made executable"
 
-# ─── Configure Guardian Hook ──────────────────────────────────────────────────
+# ─── Configure Guardian Hook ───────────────────────────────────────────────
 
 info "Configuring guardian hook..."
 
 if [ -f "$SETTINGS_FILE" ]; then
-    # Check if hook already exists
     if jq -e '.hooks.PreToolUse' "$SETTINGS_FILE" &>/dev/null; then
-        # Check if our guardian is already in there
         if jq -e '.hooks.PreToolUse[] | select(.hooks[].command | contains("guardian.sh"))' "$SETTINGS_FILE" &>/dev/null; then
             ok "Guardian hook already configured"
         else
-            # Add our hook to existing PreToolUse array
             jq '.hooks.PreToolUse += [{"matcher":"Bash","hooks":[{"type":"command","command":"'"$INSTALL_DIR"'/bin/guardian.sh","timeout":10}]}]' \
                 "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
             ok "Guardian hook added to existing hooks"
         fi
     else
-        # Add hooks section
         jq '. + {"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"'"$INSTALL_DIR"'/bin/guardian.sh","timeout":10}]}]}}' \
             "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
         ok "Guardian hook configured"
     fi
 else
-    # Create settings.json with hook
     cat > "$SETTINGS_FILE" << SETTINGS
 {
   "hooks": {
@@ -197,22 +286,19 @@ SETTINGS
     ok "Guardian hook configured (new settings.json)"
 fi
 
-# ─── Configure Permissions ─────────────────────────────────────────────────────
+# ─── Configure Permissions ─────────────────────────────────────────────────
 
 info "Configuring smart permissions..."
 
 if [ -f "$SETTINGS_LOCAL" ]; then
-    # Check if "Bash" is already in allow list
     if jq -e '.permissions.allow | index("Bash")' "$SETTINGS_LOCAL" &>/dev/null; then
         ok "Bash auto-approve already configured"
     else
-        # Add Bash to existing allow list
         jq '.permissions.allow = ((.permissions.allow // []) + ["Bash","Read","Edit","Write","Glob","Grep","WebFetch","WebSearch","Agent","NotebookEdit"] | unique)' \
             "$SETTINGS_LOCAL" > "$SETTINGS_LOCAL.tmp" && mv "$SETTINGS_LOCAL.tmp" "$SETTINGS_LOCAL"
         ok "Smart permissions added"
     fi
 else
-    # Create settings.local.json with permissions
     cat > "$SETTINGS_LOCAL" << 'PERMS'
 {
   "permissions": {
@@ -234,7 +320,7 @@ PERMS
     ok "Smart permissions configured (new settings.local.json)"
 fi
 
-# ─── Configure Playwright MCP ─────────────────────────────────────────────────
+# ─── Configure Playwright MCP ──────────────────────────────────────────────
 
 info "Configuring Playwright MCP for browser stability..."
 
@@ -242,35 +328,27 @@ PLAYWRIGHT_CONFIG="$INSTALL_DIR/config/playwright-config.json"
 BROWSER_PROFILE="$INSTALL_DIR/browser-profile"
 CLAUDE_JSON="$HOME/.claude.json"
 
-# Create persistent browser profile directory
 mkdir -p "$BROWSER_PROFILE"
 ok "Browser profile directory: $BROWSER_PROFILE"
 
-# Configure Playwright MCP in Claude Code:
-#   --config points to our stability flags (no background throttling, longer timeouts)
-#   PLAYWRIGHT_MCP_USER_DATA_DIR env var sets the persistent profile (machine-specific path)
 if [ -f "$CLAUDE_JSON" ]; then
     if jq -e '.mcpServers.playwright' "$CLAUDE_JSON" &>/dev/null; then
-        # Check if already using our config
         CURRENT_ARGS=$(jq -r '.mcpServers.playwright.args // [] | join(" ")' "$CLAUDE_JSON")
         if echo "$CURRENT_ARGS" | grep -q "playwright-config.json"; then
             ok "Playwright MCP already using autopilot config"
         else
-            # Append --config flag to existing args, set env var for profile dir
             jq --arg config "$PLAYWRIGHT_CONFIG" --arg profile "$BROWSER_PROFILE" \
                 '.mcpServers.playwright.args = (.mcpServers.playwright.args + ["--config", $config]) | .mcpServers.playwright.env.PLAYWRIGHT_MCP_USER_DATA_DIR = $profile' \
                 "$CLAUDE_JSON" > "$CLAUDE_JSON.tmp" && mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
             ok "Playwright MCP updated with stability config"
         fi
     else
-        # Add Playwright MCP with npx and our config
         jq --arg config "$PLAYWRIGHT_CONFIG" --arg profile "$BROWSER_PROFILE" \
             '.mcpServers.playwright = {"type":"stdio","command":"npx","args":["@playwright/mcp@latest","--config",$config],"env":{"PLAYWRIGHT_MCP_USER_DATA_DIR":$profile}}' \
             "$CLAUDE_JSON" > "$CLAUDE_JSON.tmp" && mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
         ok "Playwright MCP added with stability config"
     fi
 else
-    # No .claude.json yet — create minimal one with Playwright
     cat > "$CLAUDE_JSON" << CLAUDEJSON
 {
   "mcpServers": {
@@ -288,7 +366,7 @@ CLAUDEJSON
     ok "Playwright MCP configured (new .claude.json)"
 fi
 
-# ─── Run Guardian Tests ────────────────────────────────────────────────────────
+# ─── Run Guardian Tests ────────────────────────────────────────────────────
 
 info "Running guardian test suite..."
 if "$INSTALL_DIR/bin/test-guardian.sh" &>/dev/null; then
@@ -297,23 +375,24 @@ else
     warn "Some guardian tests failed — check $INSTALL_DIR/bin/test-guardian.sh"
 fi
 
-# ─── Install CLIs ──────────────────────────────────────────────────────────────
+# ─── Install CLIs ─────────────────────────────────────────────────────────
 
 info "Installing recommended CLIs..."
 "$INSTALL_DIR/bin/setup-clis.sh" || warn "Some CLIs failed to install — Autopilot will retry on-demand"
 
-# ─── Clean Up ──────────────────────────────────────────────────────────────────
+# ─── Clean Up ─────────────────────────────────────────────────────────────
 
 if [ -n "${TMP_DIR:-}" ] && [ -d "${TMP_DIR:-}" ]; then
     rm -rf "$TMP_DIR"
 fi
 
-# ─── Done ──────────────────────────────────────────────────────────────────────
+# ─── Done ─────────────────────────────────────────────────────────────────
 
 echo ""
 echo -e "${GREEN}${BOLD}Autopilot installed successfully!${NC}"
 echo ""
-echo "  Start it:  claude --agent autopilot"
+echo "  Platform: $PLATFORM"
+echo "  Start it: claude --agent autopilot"
 echo ""
 echo "  What's installed:"
 echo "    Agent:     $AGENT_DIR/autopilot.md"
@@ -321,10 +400,11 @@ echo "    System:    $INSTALL_DIR/"
 echo "    Guardian:  Active (PreToolUse hook in settings.json)"
 echo "    Perms:     Bash auto-approved (guardian provides safety)"
 echo "    Browser:   Playwright optimized for stability (config in $INSTALL_DIR/config/)"
+echo "    Creds:     $PLATFORM credential store ($(case $PLATFORM in macos) echo "macOS Keychain";; linux|wsl) echo "GNOME Keyring / libsecret";; windows) echo "Windows Credential Manager";; esac))"
 echo ""
 echo "  First run:"
-echo "    The first time Autopilot needs a service, it will ask for"
-echo "    your login credentials once and handle everything else."
+echo "    Autopilot will ask for your primary email and password once."
+echo "    After that, it handles all service signups and logins automatically."
 echo ""
 echo "  Uninstall:  ~/MCPs/autopilot/uninstall.sh"
 echo ""
