@@ -260,6 +260,57 @@ your-project/.autopilot/log.md
 
 ---
 
+## Audit Dashboard
+
+View the execution log from the terminal with `audit.sh`:
+
+```bash
+audit.sh                     # Latest session
+audit.sh all                 # All sessions
+audit.sh search supabase     # Search logs
+audit.sh accounts            # Account activity (signups, logins, tokens)
+audit.sh failures            # Failed actions only
+audit.sh summary             # One-line-per-session overview
+audit.sh --path ~/myproject  # Specify project path
+```
+
+Color-coded output: green = done, red = FAILED, yellow = ACCOUNT CREATED, blue = LOGGED IN, cyan = TOKEN STORED.
+
+---
+
+## Snapshot & Rollback
+
+Before executing a plan, Autopilot snapshots the current state using `git stash`. If something goes wrong, roll back instantly.
+
+```bash
+snapshot.sh create pre-deploy   # Create a named snapshot
+snapshot.sh list                # List all autopilot snapshots
+snapshot.sh rollback            # Rollback to latest snapshot
+snapshot.sh rollback pre-deploy # Rollback to a specific snapshot
+snapshot.sh diff                # Show what changed since snapshot
+snapshot.sh clean               # Remove all autopilot snapshots
+```
+
+Snapshots are automatic during complex tasks (Flow B). The agent creates one before executing any plan and mentions rollback availability in the completion report. Metadata is stored in `.autopilot/snapshots.json`.
+
+---
+
+## Session Persistence
+
+Work survives rate limits and crashes. Autopilot saves progress after each step so it can resume where it left off.
+
+```bash
+session.sh save "Deploy to Vercel"  # Save session state
+session.sh status                    # Check if a saved session exists
+session.sh resume                    # Show full saved session for pickup
+session.sh update '{"current_step": 3, "notes": "Step 2 done"}'  # Update progress
+session.sh clear                     # Remove saved session
+```
+
+On startup (Flow B), the agent checks for a saved session and offers to resume. Session data is stored in `.autopilot/session.json` and includes the task, plan, completed steps, services used, and notes.
+
+---
+
 ## What's Included
 
 ```
@@ -270,6 +321,9 @@ your-project/.autopilot/log.md
     chrome-debug.sh        Persistent Chrome manager (CDP)
     setup-clis.sh          CLI installer (gh, vercel, supabase, etc.)
     test-guardian.sh        Guardian test suite
+    audit.sh               Execution log viewer (terminal dashboard)
+    snapshot.sh            Snapshot & rollback (git stash wrapper)
+    session.sh             Session persistence (save/resume state)
   config/
     decision-framework.md  When to act vs. ask (5 levels)
     guardian-custom-rules.txt  Append-only blocklist
@@ -283,6 +337,8 @@ your-project/.autopilot/log.md
 # Per-project (created automatically):
 your-project/.autopilot/
   log.md                   Execution log (audit trail)
+  snapshots.json           Snapshot metadata
+  session.json             Saved session state (if interrupted)
 ```
 
 ---

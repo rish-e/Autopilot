@@ -27,3 +27,4 @@ node_modules/
 # Browser profile (persistent sessions, cookies — machine-specific)
 browser-profile/*
 !browser-profile/.gitkeep
+.chrome-debug.pid

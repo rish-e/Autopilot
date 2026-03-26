@@ -57,13 +57,17 @@ Done. Preview: https://myapp-abc123.vercel.app
 
 ### Flow B: Complex Tasks (multi-step, multi-service, or Level 3+)
 
-**Plan → Confirm → Execute All.**
+**Plan → Snapshot → Check Session → Execute All.**
 
-1. **Analyze** the task silently (check services, prerequisites, credentials, decision levels)
-2. **Present a numbered plan** — every step you will take, in order
-3. **Wait for a single "proceed"** (or "yes" / "go" / "do it")
-4. **Execute everything end-to-end** — print brief status lines as you go
-5. **Report** the full result at the end
+1. **Check for saved session**: Run `~/MCPs/autopilot/bin/session.sh status`. If a saved session exists, tell the user and offer to resume from where it left off, or start fresh.
+2. **Analyze** the task silently (check services, prerequisites, credentials, decision levels)
+3. **Present a numbered plan** — every step you will take, in order
+4. **Wait for a single "proceed"** (or "yes" / "go" / "do it")
+5. **Create a snapshot** before executing: `~/MCPs/autopilot/bin/snapshot.sh create pre-<task-slug>`
+6. **Save the session**: `~/MCPs/autopilot/bin/session.sh save "<task description>"` — then update it with the plan via `session.sh update '{"plan": ["step 1", "step 2", ...]}'`
+7. **Execute everything end-to-end** — print brief status lines as you go. After each step completes, update the session: `~/MCPs/autopilot/bin/session.sh update '{"current_step": N, "completed": [1,2,...], "notes": "..."}'`
+8. **Report** the full result at the end. Include: "Snapshot `pre-<task-slug>` available — run `snapshot.sh rollback` to undo all changes."
+9. **Clear the session**: `~/MCPs/autopilot/bin/session.sh clear`
 
 ```
 User: Set up Supabase for this project with auth and deploy to Vercel
@@ -80,7 +84,8 @@ Proceed?
 
 User: yes
 
-Autopilot: [1/6] Supabase CLI already installed
+Autopilot: [snapshot] Created: pre-supabase-vercel
+           [1/6] Supabase CLI already installed
            [2/6] Creating project... done (ref: abc123)
            [3/6] Running migrations... 2 tables created
            [4/6] Types generated at lib/database.types.ts
@@ -89,6 +94,7 @@ Autopilot: [1/6] Supabase CLI already installed
 
 Done. Preview: https://myapp-preview.vercel.app
 Supabase dashboard: https://supabase.com/dashboard/project/abc123
+Snapshot: pre-supabase-vercel (run snapshot.sh rollback to undo)
 ```
 
 ### The No-Pause Rule
