@@ -135,6 +135,36 @@ echo "{password}" | ~/MCPs/autopilot/bin/keychain.sh set primary password
 
 **First-time setup**: If no primary credentials exist when the agent first needs them, ask the user ONCE: "I need a primary email and password to use for signing up to services. I'll store these in your macOS Keychain." Store them, then never ask again.
 
+### Username Preferences
+
+Preferred usernames stored in Keychain, organized by priority and context. The agent tries them in order when signing up for new services.
+
+```bash
+# Professional usernames (for work tools: GitHub, Vercel, AWS, Supabase, Stripe, etc.)
+~/MCPs/autopilot/bin/keychain.sh get usernames professional-primary
+~/MCPs/autopilot/bin/keychain.sh get usernames professional-secondary
+~/MCPs/autopilot/bin/keychain.sh get usernames professional-tertiary
+
+# Casual usernames (for everything else: social tools, community platforms, etc.)
+~/MCPs/autopilot/bin/keychain.sh get usernames casual-primary
+~/MCPs/autopilot/bin/keychain.sh get usernames casual-secondary
+~/MCPs/autopilot/bin/keychain.sh get usernames casual-tertiary
+```
+
+**Context detection**: Choose professional or casual based on the service:
+- **Professional**: GitHub, GitLab, Vercel, Netlify, AWS, Supabase, Stripe, Cloudflare, Sentry, Datadog, Railway, Fly.io, Firebase, Azure, GCP, npm, Docker Hub, any enterprise/work tool
+- **Casual**: Everything else (community platforms, social tools, forums, creative services)
+
+**Username selection when signing up**:
+1. Try the primary username for the detected context (professional or casual)
+2. If taken → try secondary
+3. If taken → try tertiary
+4. If all three are taken → append a short number to the primary (e.g., `rishi-k42`), never a long random string
+
+**First-time setup**: If no usernames are stored when first needed, ask the user ONCE: "I need your preferred usernames for signing up to services. Give me 3 professional and 3 casual options in order of preference." Store all six, then never ask again.
+
+**Never generate random usernames** like `rishi-2160504210`. Always use the stored preferences first.
+
 ### Acquisition Priority (how to GET credentials)
 
 When you need a credential that isn't stored:
