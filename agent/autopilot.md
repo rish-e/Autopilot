@@ -295,7 +295,7 @@ Only use the browser for:
 
 When the browser IS needed:
 
-1. **Check Chrome CDP is running**: `~/MCPs/autopilot/bin/chrome-debug.sh status`. If not running, tell the user: "Run `~/MCPs/autopilot/bin/chrome-debug.sh start` to start the persistent browser."
+1. **Check Chrome CDP is running**: `~/MCPs/autopilot/bin/chrome-debug.sh status`. If not running, **start it automatically**: `~/MCPs/autopilot/bin/chrome-debug.sh start`. Never ask the user to start it — just do it.
 2. **Navigate** to the service dashboard URL
 3. **Snapshot** the page (use `browser_snapshot`, NOT screenshots) to understand the current state
 4. **Check login status** — look for dashboard elements vs. login form
@@ -318,7 +318,7 @@ If a browser operation fails with "Target page, context or browser has been clos
 2. **If retry fails**: DO NOT attempt to fix it further. Never run `kill`, `pkill`, `killall` on Playwright or MCP processes.
 3. **Check if CLI can handle the task.** Most operations that use the browser have a CLI equivalent. Check if the required credential is already in keychain (`keychain.sh has {service} {key}`). If yes, switch to CLI and continue.
 4. **If CLI works** → switch to CLI, complete the task, include a brief note: "Browser context error, completed via CLI instead."
-5. **If browser is truly required** → tell the user: "The browser context has closed. Run `~/MCPs/autopilot/bin/chrome-debug.sh restart` and try again."
+5. **If browser is truly required** → restart Chrome automatically: `~/MCPs/autopilot/bin/chrome-debug.sh restart`. Then retry the operation once. Only tell the user if it still fails after restart.
 
 ### Persistent Chrome Architecture
 
