@@ -395,6 +395,34 @@ CLAUDEJSON
     ok "Playwright MCP configured (new .claude.json)"
 fi
 
+# Verify CDP connection actually works
+info "Verifying Chrome CDP connection..."
+if curl -sf "$CDP_URL/json/version" > /dev/null 2>&1; then
+    ok "CDP connection verified at $CDP_URL"
+else
+    # Try alternate URL (IPv6)
+    ALT_URL="http://[::1]:9222"
+    if curl -sf "$ALT_URL/json/version" > /dev/null 2>&1; then
+        CDP_URL="$ALT_URL"
+        # Re-update config with working URL
+        jq --arg url "$CDP_URL" \
+            '.mcpServers.playwright.args = ["@playwright/mcp@latest","--cdp-endpoint",$url]' \
+            "$CLAUDE_JSON" > "$CLAUDE_JSON.tmp" && mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
+        ok "CDP connection verified at $CDP_URL (IPv6)"
+    else
+        warn "Could not verify CDP connection — browser automation may not work until Chrome CDP is started"
+    fi
+fi
+
+# Validate the final .claude.json config is correct
+FINAL_ARGS=$(jq -r '.mcpServers.playwright.args | join(" ")' "$CLAUDE_JSON" 2>/dev/null)
+if echo "$FINAL_ARGS" | grep -q "\-\-cdp-endpoint"; then
+    ok "Playwright MCP config validated (uses --cdp-endpoint)"
+else
+    warn "Playwright MCP config may be incorrect — expected --cdp-endpoint flag"
+    warn "Fix manually: claude mcp remove playwright && claude mcp add playwright -- npx @playwright/mcp@latest --cdp-endpoint $CDP_URL"
+fi
+
 # ─── Run Guardian Tests ────────────────────────────────────────────────────
 
 info "Running guardian test suite..."
