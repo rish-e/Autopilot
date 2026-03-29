@@ -342,13 +342,14 @@ When the browser IS needed:
 
 ### Browser Error Recovery (Layer 2 — auto-retry)
 
-If a browser operation fails with "Target page, context or browser has been closed" or similar:
+If a browser operation fails with "Target page, context or browser has been closed", "Browser is already in use", or similar:
 
-1. **Try to recover**: call `browser_close` to clean up, then retry the navigation ONCE. Sometimes only the page/context dies, not the whole browser — a close + reopen can recover it.
-2. **If retry fails**: DO NOT attempt to fix it further. Never run `kill`, `pkill`, `killall` on Playwright or MCP processes.
-3. **Check if CLI can handle the task.** Most operations that use the browser have a CLI equivalent. Check if the required credential is already in keychain (`keychain.sh has {service} {key}`). If yes, switch to CLI and continue.
-4. **If CLI works** → switch to CLI, complete the task, include a brief note: "Browser context error, completed via CLI instead."
-5. **If browser is truly required** → restart Chrome automatically: `~/MCPs/autopilot/bin/chrome-debug.sh restart`. Then retry the operation once. Only tell the user if it still fails after restart.
+1. **Clean stale locks first**: run `~/MCPs/autopilot/bin/chrome-debug.sh clean-locks`. This removes Playwright/Chrome lock files that prevent browser reuse. NEVER use raw `rm` to delete lock files — always use this command.
+2. **Try to recover**: call `browser_close` to clean up, then retry the navigation ONCE. Sometimes only the page/context dies, not the whole browser — a close + reopen can recover it.
+3. **If retry fails**: DO NOT attempt to fix it further. Never run `kill`, `pkill`, `killall` on Playwright or MCP processes.
+4. **Check if CLI can handle the task.** Most operations that use the browser have a CLI equivalent. Check if the required credential is already in keychain (`keychain.sh has {service} {key}`). If yes, switch to CLI and continue.
+5. **If CLI works** → switch to CLI, complete the task, include a brief note: "Browser context error, completed via CLI instead."
+6. **If browser is truly required** → restart Chrome automatically: `~/MCPs/autopilot/bin/chrome-debug.sh restart` (this also cleans locks). Then retry the operation once. Only tell the user if it still fails after restart.
 
 ### Persistent Chrome Architecture
 

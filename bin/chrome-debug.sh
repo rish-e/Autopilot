@@ -6,11 +6,12 @@
 # it never dies when your session ends.
 #
 # Usage:
-#   chrome-debug.sh start     # Launch Chrome with CDP (background, survives terminal close)
-#   chrome-debug.sh stop      # Stop the Chrome instance
-#   chrome-debug.sh status    # Check if Chrome CDP is running
-#   chrome-debug.sh restart   # Stop + start
-#   chrome-debug.sh url       # Print the CDP endpoint URL
+#   chrome-debug.sh start       # Launch Chrome with CDP (background, survives terminal close)
+#   chrome-debug.sh stop        # Stop the Chrome instance
+#   chrome-debug.sh status      # Check if Chrome CDP is running
+#   chrome-debug.sh restart     # Stop + start
+#   chrome-debug.sh url         # Print the CDP endpoint URL
+#   chrome-debug.sh clean-locks # Remove stale Playwright/Chrome lock files
 
 set -euo pipefail
 
@@ -78,6 +79,9 @@ cmd_start() {
         echo "Endpoint: $(get_cdp_url)"
         return 0
     fi
+
+    # Clean stale lock files that prevent Chrome from starting
+    cmd_clean_locks
 
     local chrome_bin
     chrome_bin=$(find_chrome)
@@ -191,20 +195,57 @@ cmd_url() {
 
 cmd_restart() {
     cmd_stop
+    cmd_clean_locks
     sleep 1
     cmd_start
+}
+
+cmd_clean_locks() {
+    local cleaned=0
+
+    # Clean Playwright MCP's managed browser lock files
+    local pw_cache="$HOME/Library/Caches/ms-playwright"
+    if [ -d "$pw_cache" ]; then
+        find "$pw_cache" -name "SingletonLock" -delete 2>/dev/null && ((cleaned++)) || true
+        find "$pw_cache" -name "SingletonSocket" -delete 2>/dev/null && ((cleaned++)) || true
+        find "$pw_cache" -name "SingletonCookie" -delete 2>/dev/null && ((cleaned++)) || true
+    fi
+
+    # Also check Linux path
+    local pw_cache_linux="$HOME/.cache/ms-playwright"
+    if [ -d "$pw_cache_linux" ]; then
+        find "$pw_cache_linux" -name "SingletonLock" -delete 2>/dev/null && ((cleaned++)) || true
+        find "$pw_cache_linux" -name "SingletonSocket" -delete 2>/dev/null && ((cleaned++)) || true
+        find "$pw_cache_linux" -name "SingletonCookie" -delete 2>/dev/null && ((cleaned++)) || true
+    fi
+
+    # Clean our own profile lock files
+    if [ -d "$PROFILE_DIR" ]; then
+        for lock in SingletonLock SingletonSocket SingletonCookie; do
+            if [ -e "$PROFILE_DIR/$lock" ]; then
+                rm -f "$PROFILE_DIR/$lock" 2>/dev/null && ((cleaned++)) || true
+            fi
+        done
+    fi
+
+    if [ "$cleaned" -gt 0 ]; then
+        echo "Cleaned stale lock files ($cleaned removed)"
+    else
+        echo "No stale lock files found"
+    fi
 }
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 case "${1:-status}" in
-    start)   cmd_start ;;
-    stop)    cmd_stop ;;
-    status)  cmd_status ;;
-    restart) cmd_restart ;;
-    url)     cmd_url ;;
+    start)       cmd_start ;;
+    stop)        cmd_stop ;;
+    status)      cmd_status ;;
+    restart)     cmd_restart ;;
+    url)         cmd_url ;;
+    clean-locks) cmd_clean_locks ;;
     *)
-        echo "Usage: chrome-debug.sh {start|stop|status|restart|url}"
+        echo "Usage: chrome-debug.sh {start|stop|status|restart|url|clean-locks}"
         echo ""
         echo "Manages a persistent Chrome instance with Chrome DevTools Protocol."
         echo "Playwright MCP connects to this instead of launching its own browser."
