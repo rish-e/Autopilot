@@ -101,9 +101,14 @@ fi
 if echo "$COMMAND" | grep -qE "(rm|unlink)\s.*($GUARDIAN_PROTECTED_FILES)"; then
     block "SELF-PROTECT" "Deleting guardian or settings files is not allowed"
 fi
-# Block redirect/overwrite into guardian files
-if echo "$COMMAND" | grep -qE ">\s*.*($GUARDIAN_PROTECTED_FILES)"; then
+# Block redirect/overwrite (>) but ALLOW echo append (>>) to custom rules
+if echo "$COMMAND" | grep -qE "[^>]>[^>].*($GUARDIAN_PROTECTED_FILES)"; then
     block "SELF-PROTECT" "Overwriting guardian or settings files is not allowed"
+fi
+# Allow ONLY echo/printf append (>>) to guardian-custom-rules.txt
+if echo "$COMMAND" | grep -qE ">>\s*.*($GUARDIAN_PROTECTED_FILES)" && \
+   ! echo "$COMMAND" | grep -qE "^(echo|printf)\s.*>>\s*.*guardian-custom-rules\.txt"; then
+    block "SELF-PROTECT" "Only echo append (>>) to guardian-custom-rules.txt is allowed"
 fi
 # Block chmod -x on any .sh file in the autopilot bin directory
 if echo "$COMMAND" | grep -qE "chmod\s+(-[a-zA-Z]*)?(a-x|u-x|-x|000|644)\s.*(autopilot|MCPs).*bin/.*\.sh"; then
@@ -157,7 +162,7 @@ if echo "$CMD_LOWER" | grep -qE '(ruby|perl)\s+-e\s.*\b(system|exec|`)'; then
 fi
 
 # =============================================================================
-# CATEGORY 1: SYSTEM DESTRUCTION
+# CATEGORY 2: SYSTEM DESTRUCTION
 # =============================================================================
 
 # Root/home directory deletion
@@ -193,7 +198,7 @@ if echo "$COMMAND" | grep -qE 'chmod\s+(-R\s+)?777\s+/'; then
 fi
 
 # =============================================================================
-# CATEGORY 2: CREDENTIAL EXFILTRATION
+# CATEGORY 3: CREDENTIAL EXFILTRATION
 # =============================================================================
 
 # Print/display credential values
@@ -206,6 +211,13 @@ if echo "$COMMAND" | grep -qE '(curl|wget|http).*\$\(.*keychain\.sh\s+get'; then
 fi
 if echo "$COMMAND" | grep -qE '\$\(.*keychain\.sh\s+get.*\).*(curl|wget|http)'; then
     block "CREDENTIALS" "Credential value being sent to external URL. Use env var + CLI flag instead."
+fi
+# Catch curl with various data flags sending credentials
+if echo "$COMMAND" | grep -qE 'curl\s.*(-d|--data|--data-binary|--data-raw|--data-urlencode|--upload-file)\s.*\$\(.*keychain\.sh'; then
+    block "CREDENTIALS" "Credential value being sent via curl data flag"
+fi
+if echo "$COMMAND" | grep -qE '\$\(.*keychain\.sh.*\).*curl\s.*(-d|--data|--data-binary|--data-raw)'; then
+    block "CREDENTIALS" "Credential value being sent via curl data flag"
 fi
 # Redirect credentials to ANY file (not just config files)
 if echo "$COMMAND" | grep -qE 'keychain\.sh\s+get.*[>]'; then
@@ -221,7 +233,7 @@ if echo "$CMD_LOWER" | grep -qE '(^|\s|;|&&|\|)(env|printenv|set)\s*($|\s*\||\s*
 fi
 
 # =============================================================================
-# CATEGORY 3: DATABASE DESTRUCTION
+# CATEGORY 4: DATABASE DESTRUCTION
 # =============================================================================
 
 if echo "$CMD_LOWER" | grep -qE '(drop\s+database|drop\s+schema)'; then
@@ -231,12 +243,14 @@ if echo "$CMD_LOWER" | grep -qE 'truncate\s+(table\s+)?[a-z]'; then
     block "DATABASE" "Truncating table (mass data deletion)"
 fi
 # DELETE without WHERE clause (mass deletion)
-if echo "$CMD_LOWER" | grep -qE 'delete\s+from\s+\w+\s*;' && ! echo "$CMD_LOWER" | grep -qE 'where'; then
+# Matches: DELETE FROM table, DELETE FROM table;, DELETE FROM table"
+# The WHERE check ensures legitimate filtered deletes pass through
+if echo "$CMD_LOWER" | grep -qE 'delete\s+from\s+\w+' && ! echo "$CMD_LOWER" | grep -qE 'where'; then
     block "DATABASE" "DELETE without WHERE clause (mass data deletion)"
 fi
 
 # =============================================================================
-# CATEGORY 4: GIT / PUBLISHING DESTRUCTION
+# CATEGORY 5: GIT / PUBLISHING DESTRUCTION
 # =============================================================================
 
 # Force push — but allow --force-with-lease (safer alternative)
@@ -256,7 +270,7 @@ if echo "$CMD_LOWER" | grep -qE '(npm\s+publish|cargo\s+publish|twine\s+upload|g
 fi
 
 # =============================================================================
-# CATEGORY 5: PRODUCTION DEPLOYMENTS
+# CATEGORY 6: PRODUCTION DEPLOYMENTS
 # =============================================================================
 
 if echo "$COMMAND" | grep -qE 'vercel\s+(deploy\s+)?.*--prod'; then
@@ -270,7 +284,7 @@ if echo "$CMD_LOWER" | grep -qE 'terraform\s+destroy'; then
 fi
 
 # =============================================================================
-# CATEGORY 6: ACCOUNT / VISIBILITY CHANGES
+# CATEGORY 7: ACCOUNT / VISIBILITY CHANGES
 # =============================================================================
 
 if echo "$COMMAND" | grep -qE 'gh\s+repo\s+edit\s+.*--visibility\s+public'; then
@@ -287,7 +301,7 @@ if echo "$CMD_LOWER" | grep -qE 'supabase\s+projects?\s+delete'; then
 fi
 
 # =============================================================================
-# CATEGORY 7: FINANCIAL / MESSAGING
+# CATEGORY 8: FINANCIAL / MESSAGING
 # =============================================================================
 
 if echo "$CMD_LOWER" | grep -qE 'curl.*api\.stripe\.com.*(charges|payment_intents).*-d'; then
@@ -303,7 +317,9 @@ fi
 # Legacy format with | is also supported for backwards compatibility
 # =============================================================================
 
-CUSTOM_RULES="$HOME/MCPs/autopilot/config/guardian-custom-rules.txt"
+# Resolve install dir dynamically (supports custom install locations)
+AUTOPILOT_DIR="${AUTOPILOT_DIR:-$HOME/MCPs/autopilot}"
+CUSTOM_RULES="$AUTOPILOT_DIR/config/guardian-custom-rules.txt"
 if [ -f "$CUSTOM_RULES" ]; then
     while IFS= read -r line; do
         # Skip comments and empty lines
@@ -317,11 +333,19 @@ if [ -f "$CUSTOM_RULES" ]; then
             pattern="${rest%%:::*}"
             reason="${rest#*:::}"
         else
-            # Legacy | delimiter — only split on first and last |
-            category="${line%%|*}"
-            rest="${line#*|}"
-            reason="${rest##*|}"
-            pattern="${rest%|*}"
+            # Legacy | delimiter — use cut for reliable field splitting
+            local_field_count=$(echo "$line" | awk -F'|' '{print NF}')
+            if [ "$local_field_count" -ge 3 ]; then
+                category=$(echo "$line" | cut -d'|' -f1)
+                pattern=$(echo "$line" | cut -d'|' -f2)
+                reason=$(echo "$line" | cut -d'|' -f3-)
+            elif [ "$local_field_count" -eq 2 ]; then
+                category=$(echo "$line" | cut -d'|' -f1)
+                pattern=$(echo "$line" | cut -d'|' -f2)
+                reason="Blocked by custom rule"
+            else
+                continue
+            fi
         fi
 
         [ -z "$category" ] && continue

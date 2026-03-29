@@ -28,3 +28,15 @@ node_modules/
 browser-profile/*
 !browser-profile/.gitkeep
 .chrome-debug.pid
+
+# Cached playbooks (auto-generated, machine-specific)
+playbooks/*
+!playbooks/.gitkeep
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Memory database (user-level, at ~/.autopilot/memory.db)
+# Not in this repo — stored in user home directory

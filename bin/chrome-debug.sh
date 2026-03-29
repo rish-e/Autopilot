@@ -73,6 +73,44 @@ is_running() {
     [ -n "$url" ]
 }
 
+# ─── Health Check ─────────────────────────────────────────────────────────────
+
+health_check() {
+    # Verify Chrome is actually usable by navigating to a page via CDP
+    # Returns 1 if profile appears corrupted (crash dialog, blank page, etc.)
+    local url
+    url=$(get_cdp_url)
+    [ -z "$url" ] && return 1
+
+    # Give Chrome a moment to fully initialize
+    sleep 1
+
+    # Get the first tab's page info
+    local page_info
+    page_info=$(curl -s --connect-timeout 3 "${url}/json/list" 2>/dev/null)
+    [ -z "$page_info" ] && return 1
+
+    # Check if any tab title contains corruption indicators
+    local titles
+    titles=$(echo "$page_info" | jq -r '.[].title // ""' 2>/dev/null)
+
+    if echo "$titles" | grep -qi "went wrong\|crash\|restore\|error"; then
+        echo "Profile corruption detected (page title: $(echo "$titles" | head -1))"
+        return 1
+    fi
+
+    # Try to navigate the first tab to about:blank to confirm it's responsive
+    local ws_url
+    ws_url=$(echo "$page_info" | jq -r '.[0].webSocketDebuggerUrl // ""' 2>/dev/null)
+
+    # If we got a valid websocket URL and page info, Chrome is healthy
+    if [ -n "$ws_url" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
 # ─── Commands ────────────────────────────────────────────────────────────────
 
 cmd_start() {
@@ -112,7 +150,9 @@ cmd_start() {
         --disable-ipc-flooding-protection \
         --disable-hang-monitor \
         --disable-back-forward-cache \
-        --disable-features=CalculateNativeWinOcclusion \
+        --disable-session-crashed-bubble \
+        --hide-crash-restore-bubble \
+        --disable-features=CalculateNativeWinOcclusion,InfiniteSessionRestore \
         > /dev/null 2>&1 &
 
     local pid=$!
@@ -125,6 +165,54 @@ cmd_start() {
             echo "Chrome CDP ready"
             echo "Endpoint: $(get_cdp_url)"
             echo "PID: $pid"
+
+            # Health check: verify Chrome is actually usable (not showing profile corruption dialog)
+            if ! health_check; then
+                echo ""
+                echo "WARNING: Chrome profile appears corrupted. Auto-resetting..."
+                # Don't call cmd_reset (infinite loop) — do inline reset
+                kill "$pid" 2>/dev/null || true
+                sleep 1
+                rm -f "$PID_FILE"
+                if [ -d "$PROFILE_DIR" ]; then
+                    find "$PROFILE_DIR" -not -name '.gitkeep' -not -name '.' -not -name '..' -maxdepth 1 -exec rm -rf {} + 2>/dev/null
+                    echo "Profile wiped"
+                fi
+                cmd_clean_locks 2>/dev/null
+                # Relaunch with fresh profile
+                nohup "$chrome_bin" \
+                    --remote-debugging-port="${CDP_PORT}" \
+                    --no-first-run \
+                    --no-default-browser-check \
+                    --user-data-dir="$PROFILE_DIR" \
+                    --disable-background-timer-throttling \
+                    --disable-renderer-backgrounding \
+                    --disable-backgrounding-occluded-windows \
+                    --disable-ipc-flooding-protection \
+                    --disable-hang-monitor \
+                    --disable-back-forward-cache \
+                    --disable-session-crashed-bubble \
+                    --hide-crash-restore-bubble \
+                    --disable-features=CalculateNativeWinOcclusion,InfiniteSessionRestore \
+                    > /dev/null 2>&1 &
+                pid=$!
+                echo "$pid" > "$PID_FILE"
+                # Wait for fresh instance
+                local retry=0
+                while [ $retry -lt 20 ]; do
+                    if is_running; then
+                        echo "Chrome CDP ready (fresh profile)"
+                        echo "Endpoint: $(get_cdp_url)"
+                        echo "PID: $pid"
+                        return 0
+                    fi
+                    sleep 0.5
+                    ((retry++))
+                done
+                echo "ERROR: Chrome failed to start even after profile reset" >&2
+                exit 1
+            fi
+
             return 0
         fi
         sleep 0.5

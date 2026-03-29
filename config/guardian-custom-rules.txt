@@ -19,3 +19,8 @@ DESTRUCTIVE|killall.*playwright|Killing Playwright MCP process — disconnects b
 DESTRUCTIVE|kill.*mcp|Killing MCP server process — must be restarted by Claude Code harness
 DESTRUCTIVE|pkill.*mcp|Killing MCP server process — must be restarted by Claude Code harness
 DESTRUCTIVE|killall.*mcp|Killing MCP server process — must be restarted by Claude Code harness
+CREDENTIAL:::echo.*totp-seed|printf.*totp-seed|cat.*totp-seed:::Exposing TOTP seed value — seeds must stay in keychain
+CREDENTIAL:::totp\.sh.*generate.*\|.*(curl|wget|nc):::Piping TOTP code to network — codes are ephemeral
+CREDENTIAL:::memory\.db.*(scp|curl):::Exfiltrating memory database
+DESTRUCTIVE:::rm.*memory\.db:::Deleting Autopilot memory database
+DESTRUCTIVE:::rm.*-rf.*playbooks:::Deleting cached playbooks directory
