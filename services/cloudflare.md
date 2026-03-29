@@ -107,8 +107,8 @@ For dashboard-only operations (DNS management, domain setup, analytics):
 
 ## MCP Integration
 
-- **Available**: No dedicated MCP server configured
-- **Notes**: `wrangler` CLI with API token covers Workers, R2, KV, D1, and Queues. DNS management requires the dashboard or direct API calls.
+- **Available**: `@cloudflare/mcp-server-cloudflare` (whitelisted — auto-installs when needed)
+- **Notes**: MCP server provides Workers, KV, R2, D1 management. `wrangler` CLI with API token also covers these plus DNS. Dashboard/API needed for some DNS operations.
 
 ## Notes
 

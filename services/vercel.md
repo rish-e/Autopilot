@@ -103,8 +103,8 @@ When CLI is unavailable or for operations not supported by CLI:
 
 ## MCP Integration
 
-- **Available**: No dedicated MCP server
-- **Notes**: CLI with token auth is the best approach. All operations work non-interactively with `--token` and `--yes` flags.
+- **Available**: `@vercel/mcp` (whitelisted — auto-installs when needed)
+- **Notes**: MCP provides project management, deployments, and env var operations. CLI with `--token` and `--yes` flags also works for all operations.
 
 ## Notes
 

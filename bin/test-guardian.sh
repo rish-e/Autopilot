@@ -102,7 +102,8 @@ echo ""
 
 echo "--- Should BLOCK: Database Destruction ---"
 test_block "DROP DATABASE"               'supabase db execute --sql DROP DATABASE mydb'
-test_block "DELETE without WHERE"        'psql -c "DELETE FROM users;"'
+test_block "DELETE without WHERE (;)"    'psql -c "DELETE FROM users;"'
+test_block "DELETE without WHERE (bare)" 'psql -c "DELETE FROM users"'
 test_block "TRUNCATE"                    'psql -c "TRUNCATE TABLE users"'
 echo ""
 

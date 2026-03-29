@@ -346,7 +346,17 @@ else
             macos)
                 info "Installing git via Xcode Command Line Tools..."
                 xcode-select --install 2>/dev/null || true
-                until command -v git &>/dev/null; do sleep 2; done
+                # Wait up to 5 minutes for Xcode CLT installation
+                local xcode_wait=0
+                until command -v git &>/dev/null; do
+                    sleep 2
+                    xcode_wait=$((xcode_wait + 2))
+                    if [ "$xcode_wait" -ge 300 ]; then
+                        fail "Xcode Command Line Tools installation timed out after 5 minutes"
+                        fail "Complete the installation manually, then re-run this installer"
+                        exit 1
+                    fi
+                done
                 ;;
             linux|wsl) pkg_install "git" ;;
             windows) pkg_install "git" ;;
@@ -361,7 +371,7 @@ fi
 
 # Create directories
 COMMANDS_DIR="$HOME/.claude/commands"
-mkdir -p "$INSTALL_DIR"/{bin,config,services,commands}
+mkdir -p "$INSTALL_DIR"/{bin,config,services}
 mkdir -p "$AGENT_DIR"
 mkdir -p "$COMMANDS_DIR"
 

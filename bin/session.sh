@@ -11,6 +11,12 @@
 
 set -euo pipefail
 
+# Require jq for JSON session data
+if ! command -v jq &>/dev/null; then
+    echo "ERROR: jq is required but not installed. Install: brew install jq (macOS) / sudo apt install jq (Linux)" >&2
+    exit 1
+fi
+
 # ─── Colors ──────────────────────────────────────────────────────────────────
 
 GREEN='\033[0;32m'
@@ -36,7 +42,13 @@ find_project_root() {
         fi
         dir="$(dirname "$dir")"
     done
-    # Fall back to cwd
+    # Fall back to cwd, but reject system directories
+    case "$1" in
+        /|/usr|/var|/etc|/tmp|/opt|/bin|/sbin|/lib)
+            echo "ERROR: No project root found from $1 — run from a project directory" >&2
+            exit 1
+            ;;
+    esac
     echo "$1"
 }
 

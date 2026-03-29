@@ -17,8 +17,9 @@
 set -euo pipefail
 
 CDP_PORT="${CDP_PORT:-9222}"
-PROFILE_DIR="$HOME/MCPs/autopilot/browser-profile"
-PID_FILE="$HOME/MCPs/autopilot/.chrome-debug.pid"
+AUTOPILOT_DIR="${AUTOPILOT_DIR:-$HOME/MCPs/autopilot}"
+PROFILE_DIR="$AUTOPILOT_DIR/browser-profile"
+PID_FILE="$AUTOPILOT_DIR/.chrome-debug.pid"
 
 # ─── Detect Chrome Binary ────────────────────────────────────────────────────
 
@@ -148,8 +149,15 @@ cmd_stop() {
         rm -f "$PID_FILE"
     else
         # Try to find and stop any Chrome with our debug port
-        local pids
-        pids=$(lsof -ti ":${CDP_PORT}" 2>/dev/null || true)
+        # Use lsof (macOS/most Linux), fall back to ss+awk (minimal Linux), then fuser
+        local pids=""
+        if command -v lsof &>/dev/null; then
+            pids=$(lsof -ti ":${CDP_PORT}" 2>/dev/null || true)
+        elif command -v ss &>/dev/null; then
+            pids=$(ss -tlnp "sport = :${CDP_PORT}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' || true)
+        elif command -v fuser &>/dev/null; then
+            pids=$(fuser "${CDP_PORT}/tcp" 2>/dev/null || true)
+        fi
         if [ -n "$pids" ]; then
             echo "$pids" | xargs kill 2>/dev/null
             echo "Stopped Chrome CDP process(es) on port ${CDP_PORT}"
@@ -178,7 +186,7 @@ cmd_status() {
         fi
     else
         echo "Chrome CDP is NOT running"
-        echo "Start it: ~/MCPs/autopilot/bin/chrome-debug.sh start"
+        echo "Start it: $AUTOPILOT_DIR/bin/chrome-debug.sh start"
         return 1
     fi
 }
@@ -243,15 +251,21 @@ cmd_reset() {
     cmd_stop 2>/dev/null
 
     # Kill anything on our port
-    local pids
-    pids=$(lsof -ti ":${CDP_PORT}" 2>/dev/null || true)
+    local pids=""
+    if command -v lsof &>/dev/null; then
+        pids=$(lsof -ti ":${CDP_PORT}" 2>/dev/null || true)
+    elif command -v ss &>/dev/null; then
+        pids=$(ss -tlnp "sport = :${CDP_PORT}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' || true)
+    elif command -v fuser &>/dev/null; then
+        pids=$(fuser "${CDP_PORT}/tcp" 2>/dev/null || true)
+    fi
     if [ -n "$pids" ]; then
         echo "$pids" | xargs kill 2>/dev/null || true
         sleep 1
     fi
 
-    # Also kill any chrome using our profile
-    pids=$(pgrep -f "browser-profile" 2>/dev/null || true)
+    # Also kill any chrome using our specific profile directory
+    pids=$(pgrep -f "user-data-dir=$PROFILE_DIR" 2>/dev/null || true)
     if [ -n "$pids" ]; then
         echo "$pids" | xargs kill 2>/dev/null || true
         sleep 1

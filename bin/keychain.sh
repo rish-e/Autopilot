@@ -11,7 +11,7 @@
 # Usage:
 #   keychain.sh get <service> <key>          # prints value to stdout
 #   keychain.sh set <service> <key>          # reads value from stdin (secure)
-#   keychain.sh set <service> <key> <value>  # value as argument (less secure, convenience)
+#   keychain.sh set <service> <key> <value>  # value as argument (DEPRECATED — use stdin)
 #   keychain.sh delete <service> <key>
 #   keychain.sh has <service> <key>           # exit 0 if exists, 1 if not
 #   keychain.sh list [service]                # list stored credentials
@@ -229,13 +229,25 @@ linux_list() {
             sed 's/.*= //' | \
             sort -u
     else
-        secret-tool search --all service "${SERVICE_PREFIX}" 2>/dev/null | \
+        # secret-tool search does exact match, so we can't search for a prefix.
+        # Instead, search for the label prefix which we control.
+        secret-tool search --all label "${SERVICE_PREFIX}" 2>&1 | \
             grep -E "attribute\.(service|key)" | \
             sed 's/.*= //' | \
             paste - - | \
             sed "s|${SERVICE_PREFIX}/||" | \
             awk -F'\t' '{printf "%s/%s\n", $1, $2}' | \
             sort -u
+        # Fallback: try searching with the unlock collection approach
+        if [ $? -ne 0 ] 2>/dev/null; then
+            # Search each known service pattern individually
+            for svc_path in $(secret-tool search --all 2>&1 | grep "attribute.service" | sed 's/.*= //' | grep "^${SERVICE_PREFIX}/" | sort -u); do
+                local svc_name="${svc_path#${SERVICE_PREFIX}/}"
+                secret-tool search --all service "$svc_path" 2>/dev/null | \
+                    grep "attribute.key" | \
+                    sed "s/.*= /${svc_name}\//"
+            done | sort -u
+        fi
     fi
 }
 
@@ -256,40 +268,46 @@ _cmdkey() {
 windows_get() {
     local service="$1" key="$2"
     local target="${SERVICE_PREFIX}/${service}/${key}"
+    # Validate service/key don't contain characters that could inject into PowerShell
+    if echo "$service$key" | grep -qE "['\";|&\$\`\\\\]"; then
+        echo "ERROR: Service/key names contain unsafe characters" >&2
+        exit 1
+    fi
     local output
     output=$(_cmdkey /list:"${target}" 2>/dev/null)
     if echo "$output" | grep -q "Password:" 2>/dev/null; then
         # cmdkey /list doesn't show passwords — use PowerShell to retrieve
         local result
         if command -v powershell.exe &>/dev/null; then
-            result=$(powershell.exe -NoProfile -Command "
-                \$cred = [System.Net.CredentialCache]::DefaultCredentials
-                Add-Type -AssemblyName System.Web
-                \$target = '${target}'
-                \$query = cmdkey.exe /list:\"\$target\" 2>&1
-                # cmdkey can't retrieve passwords; use CredRead via P/Invoke
-                Add-Type -Namespace 'CredManager' -Name 'Util' -MemberDefinition '
-                    [DllImport(\"advapi32.dll\", SetLastError=true, CharSet=CharSet.Unicode)]
-                    public static extern bool CredRead(string target, int type, int flags, out IntPtr cred);
-                    [DllImport(\"advapi32.dll\")]
-                    public static extern void CredFree(IntPtr cred);
-                    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
-                    public struct CREDENTIAL {
-                        public int Flags; public int Type; public string TargetName;
-                        public string Comment; public long LastWritten; public int CredentialBlobSize;
-                        public IntPtr CredentialBlob; public int Persist; public int AttributeCount;
-                        public IntPtr Attributes; public string TargetAlias; public string UserName;
-                    }
-                '
-                \$ptr = [IntPtr]::Zero
-                if ([CredManager.Util]::CredRead('${target}', 1, 0, [ref]\$ptr)) {
-                    \$cred = [Runtime.InteropServices.Marshal]::PtrToStructure(\$ptr, [Type][CredManager.Util+CREDENTIAL])
-                    \$bytes = [byte[]]::new(\$cred.CredentialBlobSize)
-                    [Runtime.InteropServices.Marshal]::Copy(\$cred.CredentialBlob, \$bytes, 0, \$cred.CredentialBlobSize)
-                    [Text.Encoding]::Unicode.GetString(\$bytes)
-                    [CredManager.Util]::CredFree(\$ptr)
-                }
-            " 2>/dev/null | tr -d '\r')
+            # Use -EncodedCommand to avoid injection via target string
+            local ps_script
+            ps_script=$(cat <<'PSEOF'
+$target = $env:AUTOPILOT_CRED_TARGET
+Add-Type -Namespace 'CredManager' -Name 'Util' -MemberDefinition '
+    [DllImport("advapi32.dll", SetLastError=true, CharSet=CharSet.Unicode)]
+    public static extern bool CredRead(string target, int type, int flags, out IntPtr cred);
+    [DllImport("advapi32.dll")]
+    public static extern void CredFree(IntPtr cred);
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+    public struct CREDENTIAL {
+        public int Flags; public int Type; public string TargetName;
+        public string Comment; public long LastWritten; public int CredentialBlobSize;
+        public IntPtr CredentialBlob; public int Persist; public int AttributeCount;
+        public IntPtr Attributes; public string TargetAlias; public string UserName;
+    }
+'
+$ptr = [IntPtr]::Zero
+if ([CredManager.Util]::CredRead($target, 1, 0, [ref]$ptr)) {
+    $cred = [Runtime.InteropServices.Marshal]::PtrToStructure($ptr, [Type][CredManager.Util+CREDENTIAL])
+    $bytes = [byte[]]::new($cred.CredentialBlobSize)
+    [Runtime.InteropServices.Marshal]::Copy($cred.CredentialBlob, $bytes, 0, $cred.CredentialBlobSize)
+    [Text.Encoding]::Unicode.GetString($bytes)
+    [CredManager.Util]::CredFree($ptr)
+}
+PSEOF
+)
+            # Pass target via environment variable, not string interpolation
+            result=$(AUTOPILOT_CRED_TARGET="$target" powershell.exe -NoProfile -Command "$ps_script" 2>/dev/null | tr -d '\r')
             if [ -n "$result" ]; then
                 echo "$result"
             else
@@ -359,14 +377,24 @@ cmd_get() {
 cmd_set() {
     local service="$1" key="$2" value=""
 
+    if [ $# -gt 3 ]; then
+        echo "WARNING: Extra arguments ignored. Usage: keychain.sh set <service> <key> [value]" >&2
+    fi
+
     if [ $# -ge 3 ]; then
+        # Deprecated: value as argument exposes it in process list (ps aux)
+        # Kept for backwards compatibility but prefer stdin
         value="$3"
+    elif [ ! -t 0 ]; then
+        # Read full value from stdin (handles multi-line tokens like PEM certs)
+        value=$(cat)
     else
+        # Interactive: read single line
         read -r value
     fi
 
     if [ -z "$value" ]; then
-        echo "ERROR: Empty value. Provide value via stdin or as third argument." >&2
+        echo "ERROR: Empty value. Pipe value via stdin: echo 'val' | keychain.sh set svc key" >&2
         exit 1
     fi
 

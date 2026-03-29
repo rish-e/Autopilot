@@ -11,6 +11,12 @@
 
 set -euo pipefail
 
+# Require jq for JSON metadata
+if ! command -v jq &>/dev/null; then
+    echo "ERROR: jq is required but not installed. Install: brew install jq (macOS) / sudo apt install jq (Linux)" >&2
+    exit 1
+fi
+
 # ─── Colors ──────────────────────────────────────────────────────────────────
 
 GREEN='\033[0;32m'
@@ -47,13 +53,8 @@ ensure_snapshots_file() {
 }
 
 get_iso_timestamp() {
-    if date --version &>/dev/null 2>&1; then
-        # GNU date (Linux)
-        date -u +"%Y-%m-%dT%H:%M:%SZ"
-    else
-        # BSD date (macOS)
-        date -u +"%Y-%m-%dT%H:%M:%SZ"
-    fi
+    # Works on both GNU date (Linux) and BSD date (macOS)
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
 find_stash_index() {
@@ -203,28 +204,15 @@ cmd_rollback() {
         display_label=$(echo "$latest_match" | sed "s/.*${STASH_PREFIX} //")
     fi
 
-    # Try pop first; if conflicts, report them
-    if git stash pop "stash@{${index}}" --quiet 2>/dev/null; then
+    # Use apply (not pop) so the snapshot is preserved for undo
+    if git stash apply "stash@{${index}}" --quiet 2>/dev/null; then
         echo -e "${GREEN}Rolled back to:${NC} ${BOLD}${display_label}${NC}"
+        echo -e "${DIM}Snapshot preserved. Drop it with: snapshot.sh drop ${display_label}${NC}"
     else
-        # Conflicts detected — stash is kept, working tree has conflict markers
+        # Conflicts detected — working tree has conflict markers
         echo -e "${YELLOW}Rolled back with conflicts:${NC} ${BOLD}${display_label}${NC}"
         echo -e "${DIM}Some files had conflicting changes. Resolve conflicts manually.${NC}"
-        echo -e "${DIM}The snapshot stash is preserved — run 'git stash drop stash@{${index}}' after resolving.${NC}"
-    fi
-
-    # Remove from metadata
-    if [ -f "$SNAPSHOTS_FILE" ]; then
-        if [ -n "$label" ]; then
-            local updated
-            updated=$(jq --arg label "$label" 'map(select(.label != $label))' "$SNAPSHOTS_FILE")
-            echo "$updated" > "$SNAPSHOTS_FILE"
-        else
-            # Remove the last entry
-            local updated
-            updated=$(jq '.[:-1]' "$SNAPSHOTS_FILE")
-            echo "$updated" > "$SNAPSHOTS_FILE"
-        fi
+        echo -e "${DIM}Snapshot preserved — safe to retry after resolving.${NC}"
     fi
 }
 

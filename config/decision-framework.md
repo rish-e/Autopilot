@@ -44,7 +44,7 @@ Stop and explain what you want to do. Wait for explicit "yes" / "go ahead".
 - **Destructive database operations** (DROP TABLE, TRUNCATE, DELETE without WHERE, destructive migrations)
 - Creating **paid** resources (upgrading tiers, enabling paid features)
 - DNS record changes
-- **First-time service login** (when no email/password exists in keychain AND no active browser session — ask user for login credentials once, then self-serve everything else)
+- **First-time service login** (when no primary credentials exist in keychain at all — ask user for email and password once, store them, then self-serve everything else)
 - Modifying auth/permissions on external services
 - Changing SSL/TLS certificates
 - Scaling infrastructure (increasing server count, upgrading instance size)
@@ -71,7 +71,7 @@ Stop immediately. Explain the blocker. Give clear instructions for what the user
 - **CAPTCHA challenges** — cannot be automated
 - **Physical device confirmation** (push notification to phone, hardware key)
 - **Legal agreements** or Terms of Service acceptance
-- **First-time login credentials** when no email/password stored in keychain AND no active browser session — ask ONCE, store both, then self-serve forever
+- **Interactive CLI logins** that require human confirmation (e.g., `npm login` opens browser, OAuth approval clicks) — tell user what to do, wait, then harvest the token
 - **OAuth consent screens** requiring user to click "Authorize" in the browser
 - **Rate limits or account locks** on external services
 - **Ambiguous architectural decisions** where multiple valid approaches exist and the choice significantly impacts the project

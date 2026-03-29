@@ -138,8 +138,8 @@ When CLI is unavailable or for dashboard-only operations:
 
 ## MCP Integration
 
-- **Available**: No dedicated MCP server currently configured
-- **Notes**: CLI is comprehensive. The `supabase` CLI supports virtually all dashboard operations. Use browser fallback only for visual SQL editing or complex RLS policy configuration.
+- **Available**: `@supabase/mcp-server` (whitelisted — auto-installs when needed)
+- **Notes**: MCP provides project management, database operations, and edge functions. CLI is also comprehensive. Use browser fallback only for visual SQL editing or complex RLS policy configuration.
 
 ## Notes
 
