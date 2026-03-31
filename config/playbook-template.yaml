@@ -1,0 +1,86 @@
+# Autopilot Playbook Template
+# ============================
+# Universal structure for browser automation playbooks.
+# Generated dynamically by the Playbook Engine when encountering new services.
+# Cached at ~/MCPs/autopilot/playbooks/{service}/{flow}.yaml
+#
+# The agent fills in actual selectors and URLs after researching the service.
+# Steps marked with "note: AGENT" require the agent to update from live data.
+#
+# Execution: the agent reads this YAML and executes each step sequentially,
+# using browser_snapshot after each step to verify the result.
+
+# ── Metadata ─────────────────────────────────────────────────────────────────
+service: "{{service_name}}"
+flow: "{{flow_type}}"
+version: 1
+generated_at: "{{iso_timestamp}}"
+last_verified: null
+
+# ── Configuration ────────────────────────────────────────────────────────────
+config:
+  timeout_ms: 30000
+  retry_on_failure: true
+  max_retries: 2
+  screenshot_on_error: true
+  cli_available: false
+  cli_tool: null
+  cli_install: null
+  prefer_cli: true
+
+# ── URLs ─────────────────────────────────────────────────────────────────────
+urls:
+  home: "https://{{service}}.com"
+  signup: "https://{{service}}.com/signup"
+  login: "https://{{service}}.com/login"
+  dashboard: "https://{{service}}.com/dashboard"
+  api_keys: "https://{{service}}.com/settings/tokens"
+
+# ── Variables (resolved at runtime from keychain) ────────────────────────────
+vars:
+  email: "{{primary_email}}"
+  password: "{{primary_password}}"
+  username: "{{professional_primary}}"
+
+# ── Steps ────────────────────────────────────────────────────────────────────
+# Each step:
+#   id:        unique identifier for goto/reference
+#   action:    browser_navigate | browser_type | browser_click | browser_snapshot |
+#              browser_select_option | browser_wait_for | verify_email | totp |
+#              keychain_set | run_flow | log
+#   params:    action-specific parameters
+#   expect:    what the page should contain after this step
+#   condition: only run if condition is met (optional)
+#   timeout:   per-step timeout override in ms (optional)
+#   fallback:  "vision" to use Computer Use if selector fails (optional)
+#   note:      instructions for the agent when generating/updating
+steps: []
+
+# ── Error Handlers ───────────────────────────────────────────────────────────
+on_error:
+  - condition: "snapshot_contains:captcha"
+    action: escalate
+    level: 5
+    message: "CAPTCHA detected on {{service}} — requires manual intervention"
+
+  - condition: "snapshot_contains:rate limit"
+    action: wait
+    duration_ms: 60000
+    then: retry
+
+  - condition: "snapshot_contains:blocked|suspended|banned"
+    action: escalate
+    level: 5
+    message: "Account appears blocked/suspended on {{service}}"
+
+  - condition: "element_not_found"
+    action: vision_fallback
+
+  - condition: "timeout"
+    action: screenshot_and_escalate
+    message: "Step timed out — page may not have loaded"
+
+# ── Post-Success ─────────────────────────────────────────────────────────────
+on_success:
+  - action: log
+    message: "{{flow}} completed successfully for {{service}}"

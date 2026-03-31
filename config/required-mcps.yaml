@@ -1,0 +1,86 @@
+# Required MCPs for Autopilot
+# ============================
+# This file defines every MCP server that Autopilot needs.
+# The setup-mcps.sh script reads this and installs/verifies each one.
+#
+# When adding a new MCP in the future:
+#   1. Add it here
+#   2. Add it to allowedTools in agent/autopilot.md
+#   3. Run: ~/MCPs/autopilot/bin/setup-mcps.sh
+#
+# Types:
+#   npm       — Self-hosted, installed via `claude mcp add -- npx -y <package>`
+#   builtin   — Built into Claude Code, enabled via settings
+#   hosted    — Anthropic-hosted (Gmail, Google Calendar), connected via claude.ai account
+#   custom    — Custom installation command
+
+mcps:
+  # ── Core (required for basic operation) ────────────────────────
+  playwright:
+    type: npm
+    package: "@playwright/mcp@latest"
+    description: "Browser automation — login, signup, credential acquisition"
+    required: true
+    args: ["--cdp-endpoint", "http://127.0.0.1:9222"]
+    setup_note: "Requires Chrome CDP running via chrome-debug.sh"
+
+  github:
+    type: npm
+    package: "@modelcontextprotocol/server-github"
+    description: "GitHub repos, PRs, issues, code search"
+    required: true
+    transport: http
+    url: "https://api.githubcopilot.com/mcp/"
+    setup_note: "Uses GitHub Copilot auth or personal access token"
+
+  filesystem:
+    type: npm
+    package: "@anthropic-ai/mcp-filesystem"
+    description: "File operations outside project directory"
+    required: false
+    args: ["/"]
+
+  memory:
+    type: npm
+    package: "@modelcontextprotocol/server-memory"
+    description: "Knowledge graph for entity/relation tracking"
+    required: false
+
+  sequential-thinking:
+    type: npm
+    package: "@anthropic-ai/mcp-sequential-thinking"
+    description: "Step-by-step reasoning for complex plans"
+    required: false
+
+  # ── Sprint 1+ (needed for adaptive resolution) ────────────────
+  context7:
+    type: npm
+    package: "@anthropic-ai/context7-mcp"
+    description: "Current documentation for any library/framework/service"
+    required: true
+    setup_note: "Used during service resolution to research unknown services"
+
+  # ── Anthropic-hosted (connected via claude.ai account) ─────────
+  gmail:
+    type: hosted
+    service: "claude_ai_Gmail"
+    description: "Email verification during signup flows"
+    required: true
+    setup_note: "Connect Gmail in claude.ai settings → Connectors → Gmail"
+    verify_tool: "mcp__claude_ai_Gmail__gmail_search_messages"
+
+  google-calendar:
+    type: hosted
+    service: "claude_ai_Google_Calendar"
+    description: "Calendar management for general-purpose tasks"
+    required: false
+    setup_note: "Connect Google Calendar in claude.ai settings → Connectors"
+    verify_tool: "mcp__claude_ai_Google_Calendar__gcal_list_events"
+
+  # ── Built-in capabilities ──────────────────────────────────────
+  computer-use:
+    type: builtin
+    description: "Native app interaction, vision fallback when Playwright breaks"
+    required: false
+    setup_note: "Enable in Claude Code: Settings → Computer Use → Enable"
+    verify_tool: "mcp__computer-use__screenshot"

@@ -198,41 +198,49 @@ if echo "$COMMAND" | grep -qE 'chmod\s+(-R\s+)?777\s+/'; then
 fi
 
 # =============================================================================
+
+# =============================================================================
 # CATEGORY 3: CREDENTIAL EXFILTRATION
 # =============================================================================
+# Protect credential values from being exposed. The INTENDED pattern is:
+#   VAR=$(keychain.sh get service key 2>/dev/null)
+#   command --token "$VAR"
+#   unset VAR
+# Block anything that would print, send, or write the raw value.
 
-# Print/display credential values
-if echo "$COMMAND" | grep -qE '(echo|printf|cat)\s.*keychain\.sh\s+get'; then
-    block "CREDENTIALS" "Credential value would be printed to stdout. Use subshell expansion instead: --token \"\$(keychain.sh get ...)\""
+# Block: echo/printf/cat directly wrapping a keychain get subshell
+# e.g. echo "$(keychain.sh get ...)"  or  echo $(keychain.sh get ...)
+if echo "$COMMAND" | grep -qE '(echo|printf|cat)\s+.*\$\(.*keychain\.sh\s+get'; then
+    block "CREDENTIALS" "Credential value would be printed to stdout. Use subshell expansion: --token \"\$(keychain.sh get ...)\""
 fi
-# Send credentials to external URLs
+# Block: piping keychain output directly to echo/cat
+if echo "$COMMAND" | grep -qE 'keychain\.sh\s+get[^|;]*\|\s*(echo|cat|printf|tee|head|tail)'; then
+    block "CREDENTIALS" "Credential value being piped to display command"
+fi
+# Block: sending credentials to external URLs via curl/wget
 if echo "$COMMAND" | grep -qE '(curl|wget|http).*\$\(.*keychain\.sh\s+get'; then
-    block "CREDENTIALS" "Credential value being sent to external URL. Use env var + CLI flag instead."
+    block "CREDENTIALS" "Credential value being sent to external URL"
 fi
 if echo "$COMMAND" | grep -qE '\$\(.*keychain\.sh\s+get.*\).*(curl|wget|http)'; then
-    block "CREDENTIALS" "Credential value being sent to external URL. Use env var + CLI flag instead."
+    block "CREDENTIALS" "Credential value being sent to external URL"
 fi
-# Catch curl with various data flags sending credentials
-if echo "$COMMAND" | grep -qE 'curl\s.*(-d|--data|--data-binary|--data-raw|--data-urlencode|--upload-file)\s.*\$\(.*keychain\.sh'; then
+# Block: curl with data flags sending credentials
+if echo "$COMMAND" | grep -qE 'curl\s.*(-d|--data|--data-binary|--data-raw|--data-urlencode)\s.*\$\(.*keychain\.sh'; then
     block "CREDENTIALS" "Credential value being sent via curl data flag"
 fi
-if echo "$COMMAND" | grep -qE '\$\(.*keychain\.sh.*\).*curl\s.*(-d|--data|--data-binary|--data-raw)'; then
-    block "CREDENTIALS" "Credential value being sent via curl data flag"
+# Block: writing credentials to files via redirect (but ALLOW 2>/dev/null and 2>&1)
+if echo "$COMMAND" | grep -qE 'keychain\.sh\s+get[^;|&]*[^2]>[^&/]'; then
+    block "CREDENTIALS" "Credential value being written to a file"
 fi
-# Redirect credentials to ANY file (not just config files)
-if echo "$COMMAND" | grep -qE 'keychain\.sh\s+get.*[>]'; then
-    block "CREDENTIALS" "Credential value being written to a file. Use keychain at runtime instead."
+# Block: piping credentials to network tools
+if echo "$COMMAND" | grep -qE 'keychain\.sh\s+get.*\|\s*(curl|wget|http|nc|ncat|netcat|socat|mail|sendmail)'; then
+    block "CREDENTIALS" "Credential value being piped to network tool"
 fi
-# Pipe credentials to network tools or tee
-if echo "$COMMAND" | grep -qE 'keychain\.sh\s+get.*\|\s*(curl|wget|http|nc|ncat|netcat|socat|tee|mail|sendmail)'; then
-    block "CREDENTIALS" "Credential value being piped to network/output tool"
-fi
-# Block env/printenv/set that could dump exported credentials
+# Block: env/printenv/set that could dump exported credentials
 if echo "$CMD_LOWER" | grep -qE '(^|\s|;|&&|\|)(env|printenv|set)\s*($|\s*\||\s*>|;)'; then
-    block "CREDENTIALS" "env/printenv/set can expose exported credential values. Access specific variables directly instead."
+    block "CREDENTIALS" "env/printenv/set can expose exported credential values"
 fi
 
-# =============================================================================
 # CATEGORY 4: DATABASE DESTRUCTION
 # =============================================================================
 
