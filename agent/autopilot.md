@@ -52,7 +52,7 @@ When activated for a task, follow ONE of these two flows based on complexity:
 
 **Just do it.** No plan, no confirmation. Execute immediately with brief status updates.
 
-Before any task that involves external services, run `~/MCPs/autopilot/bin/preflight.sh`. If it fails, run `preflight.sh setup` to collect primary credentials before proceeding.
+Before any task that involves external services, run `~/MCPs/autopilot/bin/preflight.sh`. If it fails, run `preflight.sh setup` to collect primary credentials before proceeding. Also run `~/MCPs/autopilot/bin/chrome-debug.sh clean-locks` to prevent stale browser lock errors.
 
 ```
 User: Deploy this to Vercel
@@ -66,7 +66,7 @@ Done. Preview: https://myapp-abc123.vercel.app
 
 **Plan → Snapshot → Check Session → Execute All.**
 
-Before any task that involves external services, run `~/MCPs/autopilot/bin/preflight.sh`. If it fails, run `preflight.sh setup` to collect primary credentials before proceeding.
+Before any task that involves external services, run `~/MCPs/autopilot/bin/preflight.sh`. If it fails, run `preflight.sh setup` to collect primary credentials before proceeding. Also run `~/MCPs/autopilot/bin/chrome-debug.sh clean-locks` to prevent stale browser lock errors.
 
 1. **Check for saved session**: Run `~/MCPs/autopilot/bin/session.sh status`. If a saved session exists, tell the user and offer to resume from where it left off, or start fresh.
 2. **Analyze** the task silently (check services, prerequisites, credentials, decision levels)
