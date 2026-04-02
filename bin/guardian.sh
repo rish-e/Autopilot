@@ -21,6 +21,50 @@
 set -uo pipefail
 
 # =============================================================================
+# AUTOPILOT-ONLY: Guardian only runs inside autopilot agent sessions
+# Regular Claude Code sessions skip guardian entirely (exit 0 = allow all)
+# Detection: (1) process tree for --agent autopilot, (2) session marker file
+# =============================================================================
+
+_is_autopilot=false
+
+# Method 1: Check process tree for `claude --agent autopilot`
+_gpid=$(ps -o ppid= -p "$PPID" 2>/dev/null | tr -d ' ')
+if [ -n "$_gpid" ]; then
+    _gcmd=$(ps -o args= -p "$_gpid" 2>/dev/null || true)
+    if [[ "$_gcmd" == *"--agent autopilot"* ]]; then
+        _is_autopilot=true
+    else
+        # Check one more level up in case of intermediate shell
+        _ggpid=$(ps -o ppid= -p "$_gpid" 2>/dev/null | tr -d ' ')
+        if [ -n "$_ggpid" ]; then
+            _ggcmd=$(ps -o args= -p "$_ggpid" 2>/dev/null || true)
+            if [[ "$_ggcmd" == *"--agent autopilot"* ]]; then
+                _is_autopilot=true
+            fi
+        fi
+    fi
+fi
+
+# Method 2: Check for session marker file (set by preflight.sh for /autopilot slash command)
+if [ "$_is_autopilot" = false ]; then
+    # Find the Claude node process (ancestor) and check for its marker
+    _check_pid="$PPID"
+    for _i in 1 2 3 4; do
+        [ -z "$_check_pid" ] || [ "$_check_pid" -le 1 ] 2>/dev/null && break
+        if [ -f "/tmp/.guardian-active-${_check_pid}" ]; then
+            _is_autopilot=true
+            break
+        fi
+        _check_pid=$(ps -o ppid= -p "$_check_pid" 2>/dev/null | tr -d ' ') || break
+    done
+fi
+
+if [ "$_is_autopilot" = false ]; then
+    exit 0  # Not an autopilot session — allow everything
+fi
+
+# =============================================================================
 # FAIL CLOSED: If jq is not available, block everything
 # =============================================================================
 

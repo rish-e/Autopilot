@@ -44,6 +44,43 @@ for arg in "$@"; do
     esac
 done
 
+
+# ─── Guardian Session Marker ───────────────────────────────────────────────
+# Create a marker file so guardian.sh knows this is an autopilot session.
+# This handles the /autopilot slash command case (where process tree
+# won't have --agent autopilot). Marker is PID-based and auto-cleaned.
+
+_create_guardian_marker() {
+    # Walk up process tree to find the Claude node process
+    local _pid=$$
+    for _i in 1 2 3 4 5; do
+        [ "$_pid" -le 1 ] 2>/dev/null && break
+        local _cmd=$(ps -o comm= -p "$_pid" 2>/dev/null || true)
+        if [[ "$_cmd" == *"node"* ]] || [[ "$_cmd" == *"claude"* ]]; then
+            touch "/tmp/.guardian-active-${_pid}"
+            # Schedule cleanup: remove marker when this PID dies
+            (
+                while kill -0 "$_pid" 2>/dev/null; do
+                    sleep 60
+                done
+                rm -f "/tmp/.guardian-active-${_pid}"
+            ) &>/dev/null &
+            disown 2>/dev/null
+            break
+        fi
+        _pid=$(ps -o ppid= -p "$_pid" 2>/dev/null | tr -d ' ') || break
+    done
+    # Also clean up any stale markers from dead processes
+    for f in /tmp/.guardian-active-*; do
+        [ -f "$f" ] || continue
+        local _old_pid="${f##*-}"
+        if ! kill -0 "$_old_pid" 2>/dev/null; then
+            rm -f "$f"
+        fi
+    done
+}
+_create_guardian_marker
+
 # ─── Cache ───────────────────────────────────────────────────────────────────
 
 is_cache_valid() {

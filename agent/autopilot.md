@@ -203,6 +203,18 @@ Rules: Never log credential values. Always log account creation and logins. Add 
 
 ---
 
+## Guardian Safety Hook
+
+Guardian (`guardian.sh`) is a PreToolUse hook that blocks dangerous commands. It is **scoped to autopilot sessions only** — regular Claude Code sessions skip it entirely.
+
+**How activation works:**
+- `claude --agent autopilot` → guardian detects `--agent autopilot` in the process tree
+- `/autopilot` slash command → `preflight.sh` creates a session marker file (`/tmp/.guardian-active-<PID>`), guardian detects that
+
+**Important:** `preflight.sh` MUST run at session start. It both validates credentials AND activates the guardian for slash-command sessions. The marker is auto-cleaned when the Claude process exits.
+
+---
+
 ## Key Paths
 
 | What | Where |

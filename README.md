@@ -317,7 +317,7 @@ On startup (Flow B), the agent checks for a saved session and offers to resume. 
 ~/MCPs/autopilot/
   bin/
     keychain.sh           Cross-platform credential store
-    guardian.sh            PreToolUse safety hook (55 tested patterns)
+    guardian.sh            PreToolUse safety hook (autopilot-only, 55 tested patterns)
     chrome-debug.sh        Persistent Chrome manager (CDP)
     setup-clis.sh          CLI installer (gh, vercel, supabase, etc.)
     test-guardian.sh        Guardian test suite
@@ -374,6 +374,12 @@ your-project/.autopilot/
 | Permission allowlist | **No** — evaluated by Claude Code |
 | Decision framework | In theory — Guardian catches it |
 | Credential store | **No** — OS-level encryption |
+
+### Autopilot-Scoped
+
+Guardian is installed as a global hook but **only activates during autopilot sessions** — regular Claude Code sessions skip it entirely with zero overhead. Detection uses two methods:
+- **Process tree**: detects `claude --agent autopilot` in ancestor processes
+- **Session marker**: `preflight.sh` creates `/tmp/.guardian-active-<PID>` for `/autopilot` slash command sessions (auto-cleaned on exit)
 
 ### Self-Tightening
 
