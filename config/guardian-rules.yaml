@@ -1,0 +1,261 @@
+# guardian-rules.yaml — Declarative safety rules for Guardian
+#
+# This file defines ALL guardian blocking patterns in a structured,
+# auditable format. The guardian-compile.sh script reads this and
+# generates optimized bash matching code.
+#
+# Format:
+#   categories:
+#     - name: CATEGORY_NAME
+#       description: What this category protects against
+#       rules:
+#         - pattern: "bash regex pattern"
+#           reason: "Human-readable reason shown when blocked"
+#           tier: 1|2|3  (1=literal/fastest, 2=regex, 3=custom/slowest)
+#
+# Rules within each tier are evaluated in order. First match wins.
+# Tier 1 rules use bash case/glob (fastest).
+# Tier 2 rules use bash =~ regex (fast).
+# Tier 3 rules use bash =~ in a loop (slower but extensible).
+
+version: 2
+fail_closed: true
+performance_target_ms: 5
+
+# ─── Egress Allowlist ────────────────────────────────────────────────────────
+# curl/wget commands are ONLY allowed to these domains.
+# Add domains here when integrating a new service.
+
+egress_allowlist:
+  - github.com
+  - api.github.com
+  - api.vercel.com
+  - vercel.com
+  - api.supabase.com
+  - supabase.co
+  - api.stripe.com
+  - api.cloudflare.com
+  - registry.npmjs.org
+  - api.anthropic.com
+  - api.openai.com
+  - pypi.org
+  - hub.docker.com
+  - api.razorpay.com
+  - api.alpaca.markets
+  - paper-api.alpaca.markets
+  - data.alpaca.markets
+  - api.telegram.org
+  - objects.githubusercontent.com
+  - raw.githubusercontent.com
+  - localhost
+  - "127.0.0.1"
+
+# ─── Categories ──────────────────────────────────────────────────────────────
+
+categories:
+
+  - name: SELF-PROTECT
+    description: "Prevent modification of guardian safety infrastructure"
+    rules:
+      - pattern: "guardian.sh"
+        reason: "Cannot modify guardian safety hook"
+        tier: 1
+        scope: write_edit  # Only applies to Write/Edit tool, not Bash
+      - pattern: "guardian-custom-rules.txt"
+        reason: "Cannot modify guardian custom rules"
+        tier: 1
+        scope: write_edit
+      - pattern: "settings.json|settings.local.json"
+        reason: "Cannot modify Claude Code settings (could disable guardian)"
+        tier: 1
+        scope: write_edit
+      - pattern: "sed.*guardian|awk.*guardian|tee.*guardian|mv.*guardian|cp.*guardian|rm.*guardian"
+        reason: "Cannot modify guardian files via shell commands"
+        tier: 1
+      - pattern: "chmod.*-x.*autopilot"
+        reason: "Cannot remove execute permission from autopilot scripts"
+        tier: 1
+
+  - name: SYSTEM
+    description: "Prevent filesystem/OS destruction"
+    rules:
+      - pattern: "rm -rf /"
+        reason: "Recursive deletion of root filesystem"
+        tier: 1
+      - pattern: "rm -rf ~"
+        reason: "Recursive deletion of home directory"
+        tier: 1
+      - pattern: "sudo rm -rf"
+        reason: "Privileged recursive deletion"
+        tier: 1
+      - pattern: "mkfs"
+        reason: "Filesystem formatting"
+        tier: 1
+      - pattern: "fdisk"
+        reason: "Disk partitioning"
+        tier: 1
+      - pattern: "diskutil erase"
+        reason: "Disk erasure (macOS)"
+        tier: 1
+      - pattern: ":(){ :|:& };:"
+        reason: "Fork bomb"
+        tier: 1
+      - pattern: "dd.*of=/dev/"
+        reason: "Raw disk write"
+        tier: 2
+      - pattern: "(shutdown|reboot|halt|poweroff)"
+        reason: "System shutdown/reboot"
+        tier: 2
+      - pattern: "chmod\\s+777\\s+/"
+        reason: "Unsafe global permissions on root"
+        tier: 2
+
+  - name: EVASION
+    description: "Prevent guardian bypass via indirect execution"
+    rules:
+      - pattern: "base64.*\\|.*(bash|sh|zsh)"
+        reason: "Encoded command execution"
+        tier: 2
+      - pattern: "(bash|sh|zsh)\\s+-c\\s"
+        reason: "Shell -c indirect execution"
+        tier: 2
+      - pattern: "\\beval\\b"
+        reason: "eval command execution"
+        tier: 2
+      - pattern: "\\bsource\\b|^\\."
+        reason: "Script sourcing"
+        tier: 2
+      - pattern: "<<.*\\|.*(bash|sh)"
+        reason: "Heredoc piped to shell"
+        tier: 2
+      - pattern: "python3?\\s+-c.*os\\."
+        reason: "Python inline OS access"
+        tier: 2
+      - pattern: "node\\s+-e.*(exec|spawn|child)"
+        reason: "Node.js inline process execution"
+        tier: 2
+      - pattern: "(ruby|perl)\\s+-e"
+        reason: "Script interpreter inline execution"
+        tier: 2
+      - pattern: "find.*-exec"
+        reason: "find -exec arbitrary command execution"
+        tier: 2
+      - pattern: "\\|\\s*xargs.*(rm|chmod|curl|bash|dd|mkfs)"
+        reason: "xargs piped to dangerous command"
+        tier: 2
+      - pattern: "chmod\\s+\\+x.*&&.*\\./"
+        reason: "Make executable then run"
+        tier: 2
+      - pattern: "<\\((bash|curl|wget)"
+        reason: "Process substitution with dangerous command"
+        tier: 2
+      - pattern: "crontab\\s+-(e|r|l)"
+        reason: "Crontab modification"
+        tier: 2
+      - pattern: "(^|[;\\&\\|]\\s*)(at)\\s+(now|noon|midnight|teatime|tomorrow|[0-9]|-[fmMlbdq])"
+        reason: "at command scheduling"
+        tier: 2
+      - pattern: "(^|[;\\&\\|]\\s*)batch(\\s|$)"
+        reason: "batch command scheduling"
+        tier: 2
+
+  - name: CREDENTIALS
+    description: "Prevent credential exfiltration"
+    rules:
+      - pattern: "keychain\\.sh.*get.*\\|.*(echo|cat|printf|tee|head|tail)"
+        reason: "Displaying keychain contents"
+        tier: 2
+      - pattern: "keychain\\.sh.*get.*\\|.*(curl|wget|nc|ncat|netcat|socat|mail)"
+        reason: "Exfiltrating credentials to network"
+        tier: 2
+      - pattern: "curl.*-d.*keychain"
+        reason: "Credentials in curl POST data"
+        tier: 2
+      - pattern: "keychain\\.sh.*get.*>(?!.*2>&1|.*&2)"
+        reason: "Redirecting keychain output to file"
+        tier: 2
+      - pattern: "(\\benv\\b|\\bprintenv\\b|\\bset\\b).*\\|"
+        reason: "Piping environment variables (may contain secrets)"
+        tier: 2
+
+  - name: DATABASE
+    description: "Prevent data loss"
+    rules:
+      - pattern: "DROP DATABASE"
+        reason: "Database deletion"
+        tier: 1
+      - pattern: "DROP SCHEMA"
+        reason: "Schema deletion"
+        tier: 1
+      - pattern: "TRUNCATE"
+        reason: "Table truncation"
+        tier: 1
+      - pattern: "DELETE\\s+FROM\\s+(?!.*WHERE)"
+        reason: "DELETE without WHERE clause"
+        tier: 2
+
+  - name: GIT
+    description: "Prevent repository damage"
+    rules:
+      - pattern: "git\\s+push.*--force(?!-with-lease)"
+        reason: "Force push (use --force-with-lease instead)"
+        tier: 2
+      - pattern: "git\\s+reset\\s+--hard"
+        reason: "Hard reset discards all changes"
+        tier: 2
+      - pattern: "git\\s+clean\\s+-f"
+        reason: "Force clean removes untracked files"
+        tier: 2
+
+  - name: PUBLISHING
+    description: "Prevent unintended public releases"
+    rules:
+      - pattern: "(npm|cargo|gem|pip)\\s+publish"
+        reason: "Package publishing"
+        tier: 2
+      - pattern: "gh\\s+repo\\s+edit.*--visibility\\s+public"
+        reason: "Making repository public"
+        tier: 2
+
+  - name: PRODUCTION
+    description: "Prevent unintended production changes"
+    rules:
+      - pattern: "vercel\\s+(deploy\\s+)?--prod"
+        reason: "Production deployment"
+        tier: 2
+      - pattern: "(deploy|push).*--production"
+        reason: "Production deployment"
+        tier: 2
+      - pattern: "terraform\\s+destroy"
+        reason: "Infrastructure destruction"
+        tier: 2
+
+  - name: DESTRUCTIVE
+    description: "Prevent resource deletion"
+    rules:
+      - pattern: "gh\\s+repo\\s+delete"
+        reason: "GitHub repository deletion"
+        tier: 2
+      - pattern: "vercel\\s+rm"
+        reason: "Vercel project removal"
+        tier: 2
+      - pattern: "supabase.*delete"
+        reason: "Supabase resource deletion"
+        tier: 2
+
+  - name: FINANCIAL
+    description: "Prevent unauthorized financial operations"
+    rules:
+      - pattern: "stripe.*charge|stripe.*payment.*create"
+        reason: "Financial transaction"
+        tier: 2
+
+  - name: MESSAGING
+    description: "Prevent unauthorized message sending"
+    rules:
+      - pattern: "sendmail|mail\\s+-s"
+        reason: "Email sending"
+        tier: 2
+
+  # Custom rules (loaded from guardian-custom-rules.txt) are Tier 3.
+  # They supplement this file and are append-only.

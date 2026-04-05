@@ -323,11 +323,13 @@ On startup (Flow B), the agent checks for a saved session and offers to resume. 
     test-guardian.sh        Guardian test suite
     audit.sh               Execution log viewer (terminal dashboard)
     token-report.sh        Unified token savings dashboard (RTK + TokenPilot)
+    repo-context.sh        Cached project summary for fast onboarding
     snapshot.sh            Snapshot & rollback (git stash wrapper, auto for L3+)
     session.sh             Session persistence (save/resume state)
   config/
     decision-framework.md  When to act vs. ask (5 levels)
-    guardian-custom-rules.txt  Append-only blocklist
+    guardian-rules.yaml    Declarative safety rules (auditable, versioned)
+    guardian-custom-rules.txt  Append-only blocklist (supplements YAML)
     trusted-mcps.yaml      MCP whitelist (20+ pre-vetted)
     playwright-config.json  CDP endpoint config
   browser-profile/         Persistent browser sessions

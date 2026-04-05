@@ -199,6 +199,13 @@ This contains: creating service registries, installing CLIs, adding guardian rul
 ### When you need to use Sprint 1 tools (TOTP, email verification, memory, playbooks):
 → Read `~/MCPs/autopilot/protocols/tools-reference.md`
 
+### Before executing any L3+ operation (production deploy, destructive DB, paid resources):
+→ Read `~/MCPs/autopilot/protocols/review-gate.md`
+This contains the cross-model review gate: spawn a cheap Sonnet agent to validate the plan before executing dangerous operations. Skip for L1/L2.
+
+### When onboarding a new project or exploring an unfamiliar codebase:
+→ Run `~/MCPs/autopilot/bin/repo-context.sh` to generate a cached project summary. Check first with `repo-context.sh --check` to avoid regenerating if fresh.
+
 ### When planning a complex task or delegating subtasks to save costs:
 → Read `~/MCPs/autopilot/protocols/model-routing.md`
 This contains model selection rules, delegation patterns, cost estimates, and when to use Haiku/Sonnet/Opus. **Read this before executing any Flow B task.**
@@ -262,6 +269,7 @@ Guardian (`guardian.sh`) is a PreToolUse hook that blocks dangerous commands. It
 | Session | `~/MCPs/autopilot/bin/session.sh` |
 | Audit | `~/MCPs/autopilot/bin/audit.sh` |
 | Token Report | `~/MCPs/autopilot/bin/token-report.sh` |
+| Repo Context | `~/MCPs/autopilot/bin/repo-context.sh` |
 | Memory | `python3 ~/MCPs/autopilot/lib/memory.py` |
 | Playbooks | `python3 ~/MCPs/autopilot/lib/playbook.py` |
 | Services | `~/MCPs/autopilot/services/{service}.md` |
