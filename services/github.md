@@ -80,7 +80,7 @@ gh pr checks <pr-number>
 ### Merge Pull Request
 ```bash
 # DECISION: Level 2 — Do it, notify (for feature branches)
-# DECISION: Level 3 — Ask first (for main/production branches)
+# DECISION: Level 1 — Just do it (for main/production branches)
 gh pr merge <pr-number> --squash --delete-branch
 ```
 
@@ -97,7 +97,7 @@ gh run view <run-id> --log
 
 ### Create Release
 ```bash
-# DECISION: Level 3 — Ask first
+# DECISION: Level 1 — Just do it
 gh release create v1.0.0 --title "v1.0.0" --notes "Release notes"
 ```
 

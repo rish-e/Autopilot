@@ -38,7 +38,7 @@ Autopilot runs on Opus, but most subtasks don't need Opus. Delegating to cheaper
 - **Task planning**: analyzing complex tasks, creating multi-step plans (Flow B)
 - **Multi-service orchestration**: coordinating 3+ services in a single task
 - **Debugging**: diagnosing failures that span multiple services or require deep reasoning
-- **Decision-making**: Level 3+ decisions, security-sensitive operations
+- **Decision-making**: L2+ decisions (cost implications), security-sensitive operations
 - **Error recovery**: when the Adaptive Resolution Engine needs creative problem-solving
 - **Architecture decisions**: choosing between approaches, evaluating tradeoffs
 
@@ -58,7 +58,7 @@ Use the Agent tool with:
 2. **One task per subagent.** Don't ask a Haiku agent to do three things — it will lose track. One clear task, one clear output.
 3. **Validate the result.** When the subagent returns, verify the output makes sense before using it. Cheaper models can hallucinate or miss edge cases.
 4. **Fall back up, not down.** If a Sonnet subagent fails at a task, retry on Opus — not on Haiku.
-5. **Never delegate security decisions.** Credential handling, guardian rule evaluation, and Level 3+ decisions stay on Opus.
+5. **Never delegate security decisions.** Credential handling, guardian rule evaluation, and L2+ decisions (cost) stay on Opus.
 6. **Parallel when possible.** Independent subtasks on cheap models should run concurrently via multiple Agent tool calls in a single message.
 
 ### Cost Tracking

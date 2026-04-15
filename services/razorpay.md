@@ -57,7 +57,7 @@ curl -s -u "$(~/MCPs/autopilot/bin/keychain.sh get razorpay key-id):$(~/MCPs/aut
 
 ### Create Payment Link
 ```bash
-# DECISION: Level 4 — Must ask (involves real money)
+# DECISION: Level 2 — Flag cost (involves real money)
 curl -s -X POST https://api.razorpay.com/v1/payment_links \
   -u "$(~/MCPs/autopilot/bin/keychain.sh get razorpay key-id):$(~/MCPs/autopilot/bin/keychain.sh get razorpay key-secret)" \
   -H "Content-Type: application/json" \
@@ -77,7 +77,7 @@ curl -s -u "$(~/MCPs/autopilot/bin/keychain.sh get razorpay key-id):$(~/MCPs/aut
 
 ### Create Subscription Plan
 ```bash
-# DECISION: Level 4 — Must ask (defines pricing)
+# DECISION: Level 2 — Flag cost (defines pricing)
 curl -s -X POST https://api.razorpay.com/v1/plans \
   -u "$(~/MCPs/autopilot/bin/keychain.sh get razorpay key-id):$(~/MCPs/autopilot/bin/keychain.sh get razorpay key-secret)" \
   -H "Content-Type: application/json" \

@@ -1,102 +1,72 @@
 # Autopilot Decision Framework
 
-Rules for when to act autonomously vs. consult the user.
+Simple rule: **do everything unless you physically can't.**
 
 ---
 
-## Level 1: JUST DO IT (brief notification)
+## Level 1: JUST DO IT (notify in status line)
 
-Act immediately. Include a brief note of what you did so the user stays informed.
+This is the default. If the user asked you to do something, do it. Don't present plans. Don't wait for "proceed". Just execute and report results.
 
-- Reading files, exploring codebases, searching code
-- Installing declared dependencies (`npm install`, `pip install -r requirements.txt`)
-- Running tests, linters, type checkers
-- Git operations on feature branches (commit, push, create branch)
-- Creating/editing files within the project directory
-- Running development servers locally
-- Reading credentials from keychain (already stored by user)
-- Using already-authenticated CLIs for **read-only** operations (`vercel ls`, `supabase projects list`)
-- Setting environment variables for the current shell session
-- Installing CLI tools via Homebrew or npm (after user has approved the first install)
-- Running build commands (`npm run build`, `next build`)
-- Formatting code, fixing lint errors
+- **All code operations**: read, write, commit, push, create branches, merge
+- **All deployments**: preview AND production (Vercel, Netlify, Railway, etc.)
+- **All database operations**: migrations, seeds, schema changes, even destructive ones (snapshots exist for rollback)
+- **DNS changes, SSL certs, domain config**
+- **CI/CD pipeline changes**
+- **Service logins**: if credentials are in keychain, log in. Don't ask.
+- **First-time service login**: ask for credentials once, store them, then self-serve forever
+- **Account signups**: navigate to signup page, fill everything, submit, handle email verification via browser. Only pause for CAPTCHA.
+- **OAuth consent screens**: click "Authorize" via Playwright — this is NOT a user task
+- **API token generation**: log into dashboards, create tokens, store in keychain
+- **Installing CLIs and dependencies**
+- **Creating resources**: Supabase projects, Vercel projects, GitHub repos, Cloudflare zones
+- **Sending messages when asked**: Telegram bots, Slack webhooks, notifications — if the user said "set up notifications", send a test message
+- **Publishing packages**: npm publish, PyPI upload (can always unpublish)
+- **Making repos public**: can always revert
+- **Git operations on any branch** including main
 
-## Level 2: DO IT, THEN NOTIFY (tell user what you did)
+## Level 2: DO IT, BUT FLAG THE COST (one-line notice before proceeding)
 
-Proceed, but include a brief note in your response so the user knows.
+Only for actions that **spend real money** or create **paid commitments**. Don't stop and wait — just include a one-line cost notice in your status output, then proceed unless the cost is surprisingly high (>$50).
 
-- Creating new git branches
-- Deploying to **preview/staging** (not production)
-- Non-destructive database schema changes (CREATE TABLE, ADD COLUMN)
-- Setting non-secret environment variables on services
-- Installing a CLI tool for the **first time** in a session
-- Creating new Supabase/Vercel/etc. resources in **development** environments
-- Pushing to remote feature branches
-- Running database seeds or migrations in dev/staging
-- **Generating API tokens** via browser automation (log in, create token, store in keychain)
-- **Logging into services** when email/password are already stored in keychain
+- Upgrading to paid tiers
+- Purchasing domains
+- Enabling paid features (Vercel Analytics, Supabase Pro, etc.)
+- Creating resources on paid plans
+- Live trading orders (paper trading is L1)
+- Subscription changes
 
-## Level 3: ASK FIRST (present plan, wait for approval)
+If cost is >$50 or recurring billing, pause and confirm. Otherwise just note it and keep going.
 
-Stop and explain what you want to do. Wait for explicit "yes" / "go ahead".
+## Level 3: ESCALATE (you literally cannot do this)
 
-- **Production deployments** (`vercel deploy --prod`, pushing to main)
-- **Destructive database operations** (DROP TABLE, TRUNCATE, DELETE without WHERE, destructive migrations)
-- Creating **paid** resources (upgrading tiers, enabling paid features)
-- DNS record changes
-- **First-time service login** (when no primary credentials exist in keychain at all — ask user for email and password once, store them, then self-serve everything else)
-- Modifying auth/permissions on external services
-- Changing SSL/TLS certificates
-- Scaling infrastructure (increasing server count, upgrading instance size)
-- Modifying CI/CD pipelines
+Stop only when you hit something that **requires human hands or human eyes**. These are physical/technical blockers, not policy decisions.
 
-## Level 4: MUST ASK (high stakes — show exact command/action)
+- **2FA/MFA codes**: SMS, authenticator app, push notification
+- **CAPTCHA challenges**: can't solve them
+- **Physical device confirmation**: hardware keys, biometric
+- **Legal agreements**: ToS that require human acceptance
+- **Rate limits / account locks**: need human to contact support
 
-Stop. Show the exact command or action. Explain consequences. Wait for explicit approval.
-
-- **Any action that costs real money** (billing changes, subscription upgrades, purchasing domains)
-- **Sending messages/emails to real people** (Slack, email, SMS)
-- **Publishing packages** to registries (npm publish, PyPI upload)
-- **Making repositories public**
-- **Deleting production data** or production resources
-- **Force-pushing** to shared branches
-- **Transferring ownership** of resources
-- **Revoking credentials** or access tokens
-
-## Level 5: ESCALATE (cannot proceed without user)
-
-Stop immediately. Explain the blocker. Give clear instructions for what the user needs to do.
-
-- **2FA/MFA prompts** during browser automation — tell user what code/action is needed, wait for them to handle it in the browser, then continue
-- **CAPTCHA challenges** — cannot be automated
-- **Physical device confirmation** (push notification to phone, hardware key)
-- **Legal agreements** or Terms of Service acceptance
-- **Interactive CLI logins** that require human confirmation (e.g., `npm login` opens browser, OAuth approval clicks) — tell user what to do, wait, then harvest the token
-- **OAuth consent screens** requiring user to click "Authorize" in the browser
-- **Rate limits or account locks** on external services
-- **Ambiguous architectural decisions** where multiple valid approaches exist and the choice significantly impacts the project
-
-Note: "Missing API token" is NOT an escalation. Use browser automation to generate it. Only escalate if you cannot log into the service at all.
+That's it. Everything else is your job.
 
 ---
 
-## Edge Case Rules
+## Rules
 
-### When in doubt: ask
-If an action doesn't clearly fit a level, treat it as one level higher than you think.
+### No plans, no permission
+Don't present numbered plans and wait for "proceed". Just execute. If the task has 10 steps, do all 10. Print status as you go.
+
+### Snapshots are your safety net
+Take a snapshot before anything destructive. If it goes wrong, rollback. This is why destructive operations are L1 — they're reversible.
 
 ### Compound actions
-If a workflow spans multiple levels, the **highest level** in the chain applies to the whole workflow. Example: deploying to production (Level 3) with a database migration (Level 3) that drops a column (Level 4) → the whole workflow is Level 4.
-
-### Repeat actions
-If the user has already approved an action type in this session (e.g., "yes, deploy to prod"), you can repeat it without re-asking **for the same project and context**. A new project or significantly different context resets this.
+Don't escalate a whole workflow because one step is L2. Do the L1 steps, flag the L2 cost, keep going.
 
 ### Error recovery
-If an autonomous action fails, do NOT retry with escalated privileges or different parameters. Report the failure and let the user decide.
+If something fails, retry with a different approach. Don't stop to ask unless you've exhausted all options.
 
 ### Credential access
-- ONLY read credentials you expect to find at known keychain paths
-- NEVER scan for or enumerate credentials beyond the autopilot namespace
+- ONLY read credentials at known keychain paths
 - NEVER log, echo, or display credential values
-- ALWAYS use credentials via subshell expansion: `--token "$(keychain.sh get service key)"`
-- ALWAYS unset credential variables after use when stored in shell variables
+- ALWAYS use subshell expansion: `--token "$(keychain.sh get service key)"`

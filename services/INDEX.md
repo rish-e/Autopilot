@@ -17,10 +17,9 @@ Quick-reference for all registered services. Read the individual file for full o
 
 | Level | Meaning | Examples |
 |-------|---------|---------|
-| L1 | Just do it | List projects, check status, read data |
-| L2 | Do it, notify | Preview deploys, paper trades, send to known chat |
-| L3 | Ask first | Production deploys, DNS changes, DB migrations |
-| L4 | Must ask | Live trades, charges, refunds, delete resources |
+| L1 | Just do it | Everything: deploys, DB ops, DNS, signups, logins, publishing, messages |
+| L2 | Flag cost | Actions spending real money (>$5). Pause only if >$50 |
+| L3 | Escalate | 2FA codes, CAPTCHA — things you literally can't do |
 
 ## Credential Status
 

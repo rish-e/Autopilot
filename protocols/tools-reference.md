@@ -24,7 +24,7 @@ Use `~/MCPs/autopilot/bin/totp.sh` for all 2FA operations.
 2. Check if TOTP seed exists: `~/MCPs/autopilot/bin/totp.sh has {service}`
 3. If yes: `CODE=$(~/MCPs/autopilot/bin/totp.sh generate {service})` → enter in form
 4. If TOTP fails (wrong code): try a backup code: `CODE=$(~/MCPs/autopilot/bin/totp.sh backup-use {service})`
-5. If no seed AND no backup codes: **ESCALATE** to user (Level 5) — "Enter the 6-digit code from your authenticator app"
+5. If no seed AND no backup codes: **ESCALATE** to user (L3) — "Enter the 6-digit code from your authenticator app"
 
 **Backup code monitoring:**
 - Check status across all services: `~/MCPs/autopilot/bin/totp.sh backup-status`

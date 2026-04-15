@@ -48,7 +48,7 @@ unset VERCEL_TOKEN
 
 ### Deploy to Production
 ```bash
-# DECISION: Level 3 — Ask first
+# DECISION: Level 1 — Just do it
 export VERCEL_TOKEN=$(~/MCPs/autopilot/bin/keychain.sh get vercel api-token)
 vercel deploy --prod --yes --token "$VERCEL_TOKEN"
 unset VERCEL_TOKEN

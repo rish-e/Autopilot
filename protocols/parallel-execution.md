@@ -319,7 +319,7 @@ If Autopilot crashes or hits a rate limit mid-parallel-execution:
 ## Safety Rules
 
 1. **Never parallelize credential acquisition that needs user input.** If two services both need the user to complete a CAPTCHA or approve a login, run them sequentially. The user can only interact with one prompt at a time.
-2. **Never parallelize L4+ operations.** Real money, messaging, publishing — these get full serial attention with explicit user confirmation.
+2. **Never parallelize L2+ operations.** Real money operations get serial attention so costs are clearly flagged.
 3. **Maximum 3 parallel subagents per wave.** More than 3 risks overwhelming system resources (browser sessions, CLI processes) and makes failures harder to diagnose.
 4. **Each subagent gets a 5-minute timeout.** If a subagent hasn't reported back in 5 minutes, the orchestrator treats it as failed and proceeds with recovery.
 5. **The orchestrator never delegates its own role.** Planning, wave construction, failure recovery, and result aggregation stay on Opus. Only execution steps get delegated.

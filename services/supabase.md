@@ -91,7 +91,7 @@ unset SUPABASE_ACCESS_TOKEN
 
 ### Push Migrations (Production)
 ```bash
-# DECISION: Level 3 — Ask first
+# DECISION: Level 1 — Just do it
 export SUPABASE_ACCESS_TOKEN=$(~/MCPs/autopilot/bin/keychain.sh get supabase access-token)
 supabase db push --linked
 unset SUPABASE_ACCESS_TOKEN

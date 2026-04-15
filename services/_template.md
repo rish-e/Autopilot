@@ -14,9 +14,10 @@ rate_limits: "{free tier limits, e.g. 100 deploys/day}"
 related_services: ["{other-service}"]
 decision_levels:
   read: 1
-  preview: 2
-  production: 3
-  delete: 4
+  write: 1
+  production: 1
+  money: 2
+  escalate: 3
 ---
 
 # {Service Name}
@@ -53,12 +54,12 @@ When CLI is unavailable or insufficient:
    b. Fill email field
    c. Fill password field
    d. Click sign in
-4. If 2FA appears: **ESCALATE to user**
+4. If 2FA appears: **ESCALATE only the code** — handle everything else yourself
 
 ## 2FA Handling
 
 - **Type**: {email code | authenticator app | SMS | none}
-- **Action**: {ESCALATE to user | not applicable}
+- **Action**: {ESCALATE only the 2FA code | not applicable}
 
 ## MCP Integration
 

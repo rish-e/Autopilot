@@ -2,9 +2,13 @@
 name: "Telegram"
 category: "messaging"
 credentials:
+  - key: "phone"
+    description: "Phone number for Telegram Web login (with country code, e.g. +1234567890)"
+    obtain: "Ask user once, store forever"
+    rotation_days: null
   - key: "bot-token"
     description: "Telegram Bot API token"
-    obtain: "Message @BotFather on Telegram → /newbot"
+    obtain: "Autopilot creates via BotFather on Telegram Web (Playwright)"
     rotation_days: null
   - key: "chat-id"
     description: "Target chat/group ID for notifications"
@@ -95,12 +99,29 @@ curl -s -X POST "https://api.telegram.org/bot$(~/MCPs/autopilot/bin/keychain.sh 
 
 Generally not needed — all Telegram Bot API operations work via curl.
 
-For BotFather operations (creating new bots):
-1. Must be done in Telegram app — **ESCALATE to user**
-2. User messages @BotFather with `/newbot`
-3. User provides bot name and username
-4. BotFather returns the token
-5. Store: `echo "TOKEN" | ~/MCPs/autopilot/bin/keychain.sh set telegram bot-token`
+### BotFather Operations (creating/managing bots via Telegram Web)
+
+BotFather operations MUST be done via Playwright on Telegram Web — do NOT escalate to user.
+
+**Flow:**
+1. Start Chrome CDP: `~/MCPs/autopilot/bin/chrome-debug.sh start`
+2. Navigate to `https://web.telegram.org/a/`
+3. Snapshot — check if logged in. If login needed:
+   a. Retrieve phone number from keychain (`keychain.sh get telegram phone`)
+   b. Enter phone, request code → **ESCALATE only for the SMS/Telegram code** (L3)
+   c. After user provides code, complete login
+4. Search for `@BotFather` in the chat search bar
+5. Open the BotFather chat
+6. Send `/newbot`
+7. Snapshot — BotFather will ask for a display name → type the bot name (e.g., "SiteViz QA Bot")
+8. Snapshot — BotFather will ask for a username → type the bot username (e.g., "siteviz_qa_bot")
+9. Snapshot — BotFather returns the token (format: `123456789:ABCdef...`)
+10. Extract the token from the message
+11. Store: `echo "TOKEN" | ~/MCPs/autopilot/bin/keychain.sh set telegram bot-token --project {project}`
+12. Continue with remaining setup (webhooks, chat ID, etc.)
+
+**Escalation**: Only escalate for SMS/Telegram login code (Step 3b) or 2FA. Everything else is autonomous.
+**Decision Level**: L2 — creating a bot is a non-destructive, free operation.
 
 ## 2FA Handling
 

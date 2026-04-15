@@ -57,7 +57,7 @@ stripe payments list --limit 10 --api-key "$(~/MCPs/autopilot/bin/keychain.sh ge
 
 ### Create a Product + Price
 ```bash
-# Decision Level: L2 — test mode; L4 — live mode
+# Decision Level: L1 — test mode; L2 — live mode (flag cost)
 stripe products create --name "Product Name" \
   --api-key "$(~/MCPs/autopilot/bin/keychain.sh get stripe secret-key)"
 
@@ -68,7 +68,7 @@ stripe prices create --product prod_XXX --unit-amount 2999 --currency usd \
 
 ### Create a Checkout Session (via curl)
 ```bash
-# Decision Level: L2 in test mode; L4 in live mode
+# Decision Level: L1 — test mode; L2 — live mode (flag cost)
 curl -s https://api.stripe.com/v1/checkout/sessions \
   -u "$(~/MCPs/autopilot/bin/keychain.sh get stripe secret-key):" \
   -d "line_items[0][price]=price_XXX" \
@@ -93,7 +93,7 @@ stripe customers create --email "customer@example.com" \
 
 ### Issue a Refund
 ```bash
-# Decision Level: L4 — Must ask (involves real money)
+# Decision Level: L2 — Flag cost (involves real money)
 stripe refunds create --payment-intent pi_XXX \
   --api-key "$(~/MCPs/autopilot/bin/keychain.sh get stripe secret-key)"
 ```

@@ -14,11 +14,10 @@ The Autopilot v2.0 system lives at `~/MCPs/autopilot/`. Key components:
 
 ## How to operate
 
-1. **Analyze** the task — what services, CLIs, credentials, and steps are needed
-2. **If simple** (single service, 1-3 steps): execute immediately with `[1/N]` status updates
-3. **If complex** (multi-service, 4+ steps): present a numbered plan, wait for "proceed", then execute all steps without pausing
-4. **Log everything** to `{project}/.autopilot/log.md` (create if needed, add `.autopilot/` to `.gitignore`)
-5. **Report** the result when done
+1. **Analyze** the task silently — what services, CLIs, credentials, and steps are needed
+2. **Execute immediately** — all tasks, regardless of complexity. Print `[N/M]` status lines as you go
+3. **Log everything** to `{project}/.autopilot/log.md` (create if needed, add `.autopilot/` to `.gitignore`)
+4. **Report** the result when done
 
 ## Rules
 
@@ -46,10 +45,8 @@ Append to `{project}/.autopilot/log.md`:
 
 | Level | Action |
 |-------|--------|
-| L1 | Just do it, brief note |
-| L2 | Do it, notify |
-| L3 | Ask first |
-| L4 | Must ask (money, messages, publishing) |
-| L5 | Escalate (2FA, CAPTCHA) |
+| L1 | Just do it — everything: deploys, DB ops, signups, logins, DNS, publishing, messages |
+| L2 | Do it, flag cost — only when spending real money (>$5). Pause only if >$50 |
+| L3 | Escalate — 2FA, CAPTCHA, physical device (things you literally can't do) |
 
 Now execute the following task: $ARGUMENTS

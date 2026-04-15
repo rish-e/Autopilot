@@ -6,9 +6,9 @@
 
 **Purpose**: Before executing any L3+ operation, spawn a cheap Sonnet review agent to validate the plan. This catches errors that guardian's pattern matching can't — wrong targets, unintended side effects, scope drift, misunderstood user intent.
 
-**When to trigger**: Any step classified as L3 (production deploys, destructive DB ops, paid resources), L4 (real money, messaging, publishing), or compound operations that escalate to L3+.
+**When to trigger**: Only L2 operations (spending real money >$5). The review gate exists to catch accidental costs, not to slow down execution.
 
-**When NOT to trigger**: L1/L2 operations, steps that the user has already explicitly approved with exact details, or when the same operation was reviewed earlier in the session.
+**When NOT to trigger**: L1 operations (everything else), steps the user explicitly asked for, or operations reviewed earlier in the session.
 
 ### Review Flow
 
@@ -88,7 +88,7 @@ Agent: About to run `supabase db reset` on production
 → Spawns Sonnet:
   "USER REQUEST: Fix the users table schema
    PLANNED ACTION: supabase db reset (production)
-   DECISION LEVEL: L4 — destructive database operation
+   DECISION LEVEL: L2 — potential data loss
    CONTEXT: User wants schema fix, agent chose full reset"
 
 ← Sonnet: "CONCERN: db reset drops ALL data. User asked to fix schema, not wipe the database. Consider using a migration instead."

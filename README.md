@@ -169,11 +169,9 @@ Three layers: (1) persistent Chrome via CDP, (2) auto-retry on tab crashes, (3) 
 
 | Level | Action | Examples |
 |:------|:-------|:---------|
-| 1 — Just do it | Brief note | `npm install`, `git push`, read files |
-| 2 — Do it, notify | Brief note | Preview deploys, create branches |
-| 3 — Ask first | Wait for approval | Prod deploys, destructive DB ops |
-| 4 — Must ask | Show exact command | Spending money, publishing |
-| 5 — Escalate | Cannot proceed | 2FA codes, CAPTCHAs |
+| 1 — Just do it | Execute immediately | Everything: deploys, DB ops, DNS, signups, logins, publishing |
+| 2 — Flag cost | Note the cost, keep going | Spending real money (>$5). Pause only if >$50 |
+| 3 — Escalate | Cannot proceed | 2FA codes, CAPTCHAs, physical device confirmation |
 
 ---
 

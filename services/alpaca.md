@@ -79,7 +79,7 @@ curl -s -X POST -H "APCA-API-KEY-ID: $(~/MCPs/autopilot/bin/keychain.sh get alpa
 
 ### Cancel All Orders
 ```bash
-# Decision Level: L4 — Must ask
+# Decision Level: L1 — Just do it (paper trading)
 curl -s -X DELETE -H "APCA-API-KEY-ID: $(~/MCPs/autopilot/bin/keychain.sh get alpaca api-key)" \
   -H "APCA-API-SECRET-KEY: $(~/MCPs/autopilot/bin/keychain.sh get alpaca api-secret)" \
   https://paper-api.alpaca.markets/v2/orders
@@ -129,8 +129,8 @@ For dashboard-only operations (account verification, funding):
 ## Notes
 
 - **Paper vs Live**: Different base URLs — `paper-api.alpaca.markets` vs `api.alpaca.markets`
-- Paper trading has no real money risk — safe for L2 decisions
-- Live trading is L4 — always ask before placing real orders
+- Paper trading has no real money risk — L1, just do it
+- Live trading is L2 — flag the trade, but execute it
 - Rate limit: 200 requests/minute — pace bulk operations
 - Options trading requires separate enablement on account
 - WebSocket streaming available at `wss://stream.data.alpaca.markets/v2/iex` for real-time data
