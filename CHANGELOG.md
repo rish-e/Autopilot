@@ -4,6 +4,34 @@ All notable changes to Autopilot are documented here.
 
 ---
 
+## [3.4] — 2026-04-20 — Webhook Daemon
+
+Event-driven task triggering: Autopilot can now be woken by GitHub webhooks, direct HTTP calls, or any system that can POST JSON.
+
+### Added
+
+**`bin/daemon-server.py`** — lightweight Python HTTP server (127.0.0.1:7891):
+- `GET /status` — health check; reports `task_running` + PID
+- `POST /task` — generic trigger authenticated with Bearer token
+- `POST /github` — GitHub webhook handler with HMAC-SHA256 signature verification
+- Translates four GitHub events into autopilot tasks automatically:
+  - `push` to main/master → deploy check
+  - `pull_request` merged → run deployment pipeline
+  - `workflow_run` failure → investigate and fix
+  - `issues` labeled `autopilot` → complete the described task
+- PID-based lock file prevents concurrent task execution
+- Sanitizes task strings (strips shell metacharacters) before passing to `claude --agent autopilot`
+
+**`bin/daemon.sh`** — lifecycle manager:
+- `start` — spawns daemon-server.py in background, loads secret from keychain
+- `stop` — SIGTERM with 5s grace period before SIGKILL
+- `status` — PID check + live `/status` curl
+- `logs [N]` — tail `~/.autopilot/daemon.log`
+- `trigger "task"` — POST a one-off task via HTTP with Bearer auth
+- `setup` — generate 32-byte hex secret, store in keychain, print GitHub webhook config
+
+---
+
 ## [3.3] — 2026-04-20 — Security Hardening
 
 Full security audit against 35 principles from OWASP LLM Top 10 v2, Willison's lethal trifecta, Greshake et al. (arXiv:2302.12173), Invariant Labs MCP research, and community incident reports. Result: 7 new defenses, 0 capability regressions.

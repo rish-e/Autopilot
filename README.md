@@ -282,6 +282,40 @@ claude --agent autopilot --dangerously-skip-permissions
 | Full project setup from scratch | Agent mode |
 | Mid-coding infrastructure task | `/autopilot` |
 | Multi-service orchestration (5+ services) | Agent mode |
+| Triggered by GitHub push / PR merge | Webhook daemon |
+
+### Webhook Daemon — Event-Driven Triggers
+
+Run Autopilot headlessly; GitHub pushes, PR merges, or CI failures wake it automatically:
+
+```bash
+# One-time setup: generate secret + print GitHub webhook config
+bin/daemon.sh setup
+
+# Start / stop
+bin/daemon.sh start
+bin/daemon.sh stop
+
+# Check status
+bin/daemon.sh status
+
+# Fire a one-off task from the CLI
+bin/daemon.sh trigger "deploy the latest main branch to Vercel staging"
+
+# Watch the log
+bin/daemon.sh logs 100
+```
+
+**Supported GitHub events** (configure in repo Settings → Webhooks):
+
+| Event | Trigger condition | Task generated |
+|:------|:-----------------|:---------------|
+| `push` | Commit lands on `main`/`master` | Check if deploy needed and run it |
+| `pull_request` | PR merged | Run the deployment pipeline |
+| `workflow_run` | CI job fails | Investigate and fix |
+| `issues` | Labeled `autopilot` | Complete the described task |
+
+The daemon binds to `127.0.0.1:7891`. Use [ngrok](https://ngrok.com) or a reverse proxy to expose it to GitHub.
 
 ---
 
@@ -382,6 +416,8 @@ On startup (Flow B), the agent checks for a saved session and offers to resume. 
     content-sanitizer.sh   Injection defense — wraps external content, strips 22 patterns
     budget.sh              Session spend cap (5 signups / $20 / 500 calls)
     mcp-manifest-check.sh  MCP rug-pull detector (standalone PreToolUse hook)
+    daemon-server.py        Webhook HTTP server (GitHub / generic POST triggers)
+    daemon.sh              Daemon lifecycle manager (start/stop/status/trigger/setup)
   applescripts/            AppleScript playbooks (macOS GUI automation)
     app-control.applescript       Open / focus / quit / status apps
     handle-system-dialog.applescript  Click buttons on dialogs and sheets
