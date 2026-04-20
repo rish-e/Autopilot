@@ -277,6 +277,8 @@ Guardian (`guardian.sh`) is a PreToolUse hook that blocks dangerous commands. It
 | AppleScript Playbooks | `~/MCPs/autopilot/applescripts/*.applescript` |
 | Content Sanitizer | `~/MCPs/autopilot/bin/content-sanitizer.sh` |
 | Budget / Spend Cap | `~/MCPs/autopilot/bin/budget.sh` |
+| MCP Manifest Check | `~/MCPs/autopilot/bin/mcp-manifest-check.sh` |
+| MCP Tool Manifest | `~/MCPs/autopilot/config/mcp-tool-manifest.json` |
 | Memory | `python3 ~/MCPs/autopilot/lib/memory.py` |
 | Playbooks | `python3 ~/MCPs/autopilot/lib/playbook.py` |
 | Services | `~/MCPs/autopilot/services/{service}.md` |

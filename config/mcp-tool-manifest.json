@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "note": "Trusted MCP tool name prefixes. Guardian warns on unknown mcp__ tools to detect rug-pull attacks (new tools added by a compromised/swapped MCP server). Update this list when legitimately adding a new MCP server.",
+  "trusted_prefixes": [
+    "mcp__playwright__",
+    "mcp__github__",
+    "mcp__filesystem__",
+    "mcp__memory__",
+    "mcp__sequential-thinking__",
+    "mcp__context7__",
+    "mcp__jcodemunch__",
+    "mcp__uimax__",
+    "mcp__shadcn-ui__",
+    "mcp__backend-max__",
+    "mcp__plugin_vercel_vercel__",
+    "mcp__claude_ai_Google_Drive__",
+    "mcp__claude_ai_Gmail__",
+    "mcp__claude_ai_Google_Calendar__",
+    "mcp__computer-use__"
+  ],
+  "updated_at": "2026-04-20"
+}

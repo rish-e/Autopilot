@@ -30,7 +30,13 @@ Use Computer Use for (ONLY these cases):
 
 When the browser IS needed:
 
-1. **Check Chrome CDP is running**: `~/MCPs/autopilot/bin/chrome-debug.sh status`. If not running, **start it automatically**: `~/MCPs/autopilot/bin/chrome-debug.sh start`. Never ask the user to start it — just do it.
+1. **Choose profile mode** based on task sensitivity:
+   - **Persistent** (default) — `chrome-debug.sh start` — reuses cookies/sessions across tasks. Use for familiar services where state continuity helps.
+   - **Ephemeral** (isolated) — `chrome-debug.sh ephemeral-start <task-id>` (port 9223) — fresh profile, no prior cookies. **Use for**: new service signups, OAuth flows, any task that shouldn't inherit prior browser state. Always call `chrome-debug.sh ephemeral-stop` when done (wipes profile).
+
+   To use the ephemeral browser with Playwright MCP, set the CDP endpoint to `http://127.0.0.1:9223` for that task.
+
+2. **Check Chrome CDP is running**: `~/MCPs/autopilot/bin/chrome-debug.sh status`. If not running, **start it automatically**: `~/MCPs/autopilot/bin/chrome-debug.sh start`. Never ask the user to start it — just do it.
 2. **Navigate** to the service dashboard URL
 3. **Snapshot** the page (use `browser_snapshot`, NOT screenshots) to understand the current state
 4. **Check login status** — look for dashboard elements vs. login form

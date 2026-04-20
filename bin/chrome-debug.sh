@@ -17,9 +17,11 @@
 set -euo pipefail
 
 CDP_PORT="${CDP_PORT:-9222}"
+CDP_EPHEMERAL_PORT="${CDP_EPHEMERAL_PORT:-9223}"
 AUTOPILOT_DIR="${AUTOPILOT_DIR:-$HOME/MCPs/autopilot}"
 PROFILE_DIR="$AUTOPILOT_DIR/browser-profile"
 PID_FILE="$AUTOPILOT_DIR/.chrome-debug.pid"
+EPHEMERAL_PID_FILE="${TMPDIR:-/tmp}/.autopilot-ephemeral.pid"
 
 # ─── Detect Chrome Binary ────────────────────────────────────────────────────
 
@@ -336,6 +338,102 @@ cmd_clean_locks() {
     fi
 }
 
+# ─── Ephemeral Browser Profile ───────────────────────────────────────────────
+# Per-task isolated Chrome instance on a separate port (9223).
+# Profile lives in /tmp and is wiped on stop — no cookie/session bleed between tasks.
+# Use for: service signups, OAuth flows, any task that shouldn't share browser state.
+
+cmd_ephemeral_start() {
+    local task_id="${1:-$(date +%s)}"
+    local ephemeral_profile="${TMPDIR:-/tmp}/autopilot-task-${task_id}"
+
+    if curl -s --connect-timeout 1 "http://127.0.0.1:${CDP_EPHEMERAL_PORT}/json/version" > /dev/null 2>&1; then
+        echo "Ephemeral Chrome already running on port ${CDP_EPHEMERAL_PORT}"
+        echo "Ephemeral endpoint: http://127.0.0.1:${CDP_EPHEMERAL_PORT}"
+        return 0
+    fi
+
+    local chrome_bin
+    chrome_bin=$(find_chrome)
+    if [ -z "$chrome_bin" ]; then
+        echo "ERROR: No Chrome/Chromium installation found." >&2
+        exit 1
+    fi
+
+    mkdir -p "$ephemeral_profile"
+    echo "Starting ephemeral Chrome (task: ${task_id}, port: ${CDP_EPHEMERAL_PORT})..."
+    echo "Profile: ${ephemeral_profile} (auto-wiped on stop)"
+
+    nohup "$chrome_bin" \
+        --remote-debugging-port="${CDP_EPHEMERAL_PORT}" \
+        --no-first-run \
+        --no-default-browser-check \
+        --user-data-dir="$ephemeral_profile" \
+        --disable-background-timer-throttling \
+        --disable-renderer-backgrounding \
+        --disable-backgrounding-occluded-windows \
+        --disable-ipc-flooding-protection \
+        --disable-hang-monitor \
+        --disable-back-forward-cache \
+        --disable-session-crashed-bubble \
+        --hide-crash-restore-bubble \
+        --disable-features=CalculateNativeWinOcclusion,InfiniteSessionRestore \
+        > /dev/null 2>&1 &
+
+    local pid=$!
+    echo "${pid}:${ephemeral_profile}" > "$EPHEMERAL_PID_FILE"
+
+    local attempts=0
+    while [ $attempts -lt 20 ]; do
+        if curl -s --connect-timeout 1 "http://127.0.0.1:${CDP_EPHEMERAL_PORT}/json/version" > /dev/null 2>&1; then
+            echo "Ephemeral Chrome ready"
+            echo "Ephemeral endpoint: http://127.0.0.1:${CDP_EPHEMERAL_PORT}"
+            echo "PID: $pid"
+            return 0
+        fi
+        sleep 0.5
+        ((attempts++))
+    done
+
+    echo "ERROR: Ephemeral Chrome failed to start on port ${CDP_EPHEMERAL_PORT}" >&2
+    exit 1
+}
+
+cmd_ephemeral_stop() {
+    if [ ! -f "$EPHEMERAL_PID_FILE" ]; then
+        echo "No ephemeral Chrome session recorded"
+        return 0
+    fi
+
+    local entry pid ephemeral_profile
+    entry=$(cat "$EPHEMERAL_PID_FILE")
+    pid="${entry%%:*}"
+    ephemeral_profile="${entry#*:}"
+
+    if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null
+        echo "Stopped ephemeral Chrome (PID: $pid)"
+    else
+        echo "Ephemeral Chrome PID $pid not running (stale)"
+    fi
+    rm -f "$EPHEMERAL_PID_FILE"
+
+    # Wipe profile — only if it's safely inside /tmp to prevent accidents
+    if [ -n "$ephemeral_profile" ] && [[ "$ephemeral_profile" == /tmp/autopilot-task-* ]]; then
+        rm -rf "$ephemeral_profile"
+        echo "Ephemeral profile wiped (task isolation complete)"
+    fi
+}
+
+cmd_ephemeral_url() {
+    if curl -s --connect-timeout 1 "http://127.0.0.1:${CDP_EPHEMERAL_PORT}/json/version" > /dev/null 2>&1; then
+        echo "http://127.0.0.1:${CDP_EPHEMERAL_PORT}"
+    else
+        echo "ERROR: Ephemeral Chrome not running on port ${CDP_EPHEMERAL_PORT}" >&2
+        exit 1
+    fi
+}
+
 cmd_reset() {
     echo "Resetting Chrome CDP (full profile wipe)..."
 
@@ -380,27 +478,33 @@ cmd_reset() {
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 case "${1:-status}" in
-    start)       cmd_start ;;
-    stop)        cmd_stop ;;
-    status)      cmd_status ;;
-    restart)     cmd_restart ;;
-    url)         cmd_url ;;
-    clean-locks) cmd_clean_locks ;;
-    reset)       cmd_reset ;;
+    start)            cmd_start ;;
+    stop)             cmd_stop ;;
+    status)           cmd_status ;;
+    restart)          cmd_restart ;;
+    url)              cmd_url ;;
+    clean-locks)      cmd_clean_locks ;;
+    reset)            cmd_reset ;;
+    ephemeral-start)  cmd_ephemeral_start "${2:-}" ;;
+    ephemeral-stop)   cmd_ephemeral_stop ;;
+    ephemeral-url)    cmd_ephemeral_url ;;
     *)
         echo "Usage: chrome-debug.sh {start|stop|status|restart|url|clean-locks|reset}"
+        echo "       chrome-debug.sh {ephemeral-start [task-id]|ephemeral-stop|ephemeral-url}"
         echo ""
-        echo "Manages a persistent Chrome instance with Chrome DevTools Protocol."
-        echo "Playwright MCP connects to this instead of launching its own browser."
-        echo ""
-        echo "Commands:"
-        echo "  start       Launch Chrome with CDP on port ${CDP_PORT}"
+        echo "Persistent browser (port ${CDP_PORT}):"
+        echo "  start       Launch Chrome with CDP"
         echo "  stop        Stop the Chrome instance"
         echo "  status      Check if Chrome CDP is running"
         echo "  restart     Stop + clean locks + start"
         echo "  url         Print the CDP endpoint URL"
         echo "  clean-locks Remove stale browser lock files"
         echo "  reset       Full reset: stop, wipe profile, clean locks, start fresh"
+        echo ""
+        echo "Ephemeral browser (port ${CDP_EPHEMERAL_PORT}, auto-wiped on stop):"
+        echo "  ephemeral-start [id]  Fresh profile for task isolation"
+        echo "  ephemeral-stop        Stop + wipe ephemeral profile"
+        echo "  ephemeral-url         Print ephemeral CDP endpoint"
         exit 2
         ;;
 esac
