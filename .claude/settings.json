@@ -1,0 +1,59 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllow": true,
+    "failIfUnavailable": false,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.gnupg",
+        "~/.config/gh",
+        "~/.netrc",
+        "~/.npmrc",
+        "~/.pypirc"
+      ],
+      "denyWrite": [
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.staging"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "*.github.com",
+        "api.github.com",
+        "api.vercel.com",
+        "vercel.com",
+        "*.vercel.app",
+        "api.supabase.com",
+        "supabase.co",
+        "*.supabase.co",
+        "api.stripe.com",
+        "api.cloudflare.com",
+        "api.razorpay.com",
+        "registry.npmjs.org",
+        "api.anthropic.com",
+        "api.openai.com",
+        "pypi.org",
+        "hub.docker.com",
+        "api.alpaca.markets",
+        "paper-api.alpaca.markets",
+        "data.alpaca.markets",
+        "api.telegram.org",
+        "objects.githubusercontent.com",
+        "raw.githubusercontent.com",
+        "localhost",
+        "127.0.0.1"
+      ]
+    },
+    "excludedCommands": [
+      "docker *",
+      "lima *",
+      "orbstack *"
+    ]
+  }
+}

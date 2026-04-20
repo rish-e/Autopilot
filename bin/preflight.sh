@@ -316,6 +316,13 @@ check_memory_db() {
 # ─── Run All Checks ─────────────────────────────────────────────────────────
 
 cmd_check_all() {
+    # Initialize session budget (spend cap, signup counter, tool-call guard).
+    # Always runs, even on cache hit — budget is session-scoped, not cached.
+    local budget_sh="$SCRIPT_DIR/budget.sh"
+    if [ -x "$budget_sh" ]; then
+        "$budget_sh" init 2>/dev/null || true
+    fi
+
     # Check cache first
     if is_cache_valid && [ "$JSON_MODE" = "false" ]; then
         echo -e "${DIM}Preflight: using cached results ($(( $(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || echo 0) ))s old)${NC}"

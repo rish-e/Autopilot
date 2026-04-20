@@ -27,6 +27,7 @@ set -uo pipefail
 # =============================================================================
 
 _is_autopilot=false
+_session_pid=""
 
 # Method 1: Check process tree for `claude --agent autopilot`
 _gpid=$(ps -o ppid= -p "$PPID" 2>/dev/null | tr -d ' ')
@@ -54,6 +55,7 @@ if [ "$_is_autopilot" = false ]; then
         [ -z "$_check_pid" ] || [ "$_check_pid" -le 1 ] 2>/dev/null && break
         if [ -f "/tmp/.guardian-active-${_check_pid}" ]; then
             _is_autopilot=true
+            _session_pid="$_check_pid"
             break
         fi
         _check_pid=$(ps -o ppid= -p "$_check_pid" 2>/dev/null | tr -d ' ') || break
@@ -120,6 +122,22 @@ fi
 # Normalize: lowercase for case-insensitive matching
 # Using tr instead of ${,,} for compatibility with bash 3.x (macOS default)
 CMD_LOWER=$(echo "$COMMAND" | tr '[:upper:]' '[:lower:]')
+
+# ── Loop detection: halt if same Bash command repeated 3× in session ──
+# Tracks a rolling window of the last 15 (tool, command) pairs in a session-scoped
+# JSON file. Prevents runaway automation where the agent retries the same failing
+# command indefinitely. Three identical calls = stuck; escalate to user.
+if [ -n "${_session_pid:-}" ] && command -v jq &>/dev/null; then
+    _loop_file="${TMPDIR:-/tmp}/.autopilot-loop-${_session_pid}.json"
+    _call_key="${TOOL_NAME}:${COMMAND:0:120}"
+    _loop_data='{"calls":[]}'
+    [ -f "$_loop_file" ] && _loop_data=$(cat "$_loop_file" 2>/dev/null || echo '{"calls":[]}')
+    _repeat_count=$(echo "$_loop_data" | jq --arg k "$_call_key" '[.calls[] | select(. == $k)] | length' 2>/dev/null || echo "0")
+    if [ "$_repeat_count" -ge 2 ]; then
+        block "LOOP" "Same ${TOOL_NAME} call repeated 3+ times this session — agent appears stuck. Try a different approach or escalate to user."
+    fi
+    echo "$_loop_data" | jq --arg k "$_call_key" '.calls = (.calls + [$k]) | .calls = .calls[-15:]' 2>/dev/null > "$_loop_file" || true
+fi
 
 block() {
     local category="$1"
@@ -391,6 +409,43 @@ if [[ "$COMMAND" =~ osascript ]] && ! [[ "$COMMAND" =~ osascript\.sh ]]; then
     # Pattern requires: applescripts/ followed by a clean filename (no path traversal)
     if ! [[ "$COMMAND" =~ osascript[[:space:]].*applescripts/[a-zA-Z0-9_-]+\.applescript ]]; then
         block "APPLESCRIPT" "osascript is only allowed for .applescript files in ~/MCPs/autopilot/applescripts/"
+    fi
+fi
+
+# ── Category 11: Supply Chain Safety ──
+# Block installs from non-HTTPS sources (susceptible to MITM) and non-PyPI pip indexes.
+# npm post-install scripts can execute arbitrary code — HTTP sources compound this risk.
+if [[ "$CMD_LOWER" =~ (npm[[:space:]]+(install|i))[[:space:]].*http:// ]]; then
+    block "SUPPLY_CHAIN" "npm install from HTTP (non-HTTPS) URL — use HTTPS or registry packages"
+fi
+if [[ "$CMD_LOWER" =~ pip[23]?[[:space:]]+install[[:space:]].*http:// ]]; then
+    block "SUPPLY_CHAIN" "pip install from HTTP (non-HTTPS) URL — use HTTPS or PyPI packages"
+fi
+if [[ "$CMD_LOWER" =~ pip[23]?[[:space:]]+install ]] && \
+   [[ "$CMD_LOWER" =~ (--index-url|-i[[:space:]]) ]] && \
+   ! [[ "$CMD_LOWER" =~ (pypi\.org|pythonhosted\.org) ]]; then
+    block "SUPPLY_CHAIN" "pip install from non-PyPI index — only pypi.org and pythonhosted.org are trusted"
+fi
+
+# ── Category 12: Secret exfiltration pattern detection ──
+# Detect hardcoded API key formats in outbound network commands.
+# Legitimate Autopilot usage always passes secrets via keychain.sh subshell
+# expansion — never as literal strings. Literal keys here = possible injection.
+if [[ "$CMD_LOWER" =~ (curl|wget|http[[:space:]]|nc[[:space:]]|ncat|netcat|socat)[[:space:]] ]]; then
+    if echo "$COMMAND" | grep -qE 'AKIA[A-Z0-9]{16}'; then
+        block "SECRET_EXFIL" "AWS Access Key (AKIA...) in network command — use keychain.sh, not hardcoded keys"
+    fi
+    if echo "$COMMAND" | grep -qE 'sk-[a-zA-Z0-9]{48}[^a-zA-Z0-9]'; then
+        block "SECRET_EXFIL" "OpenAI API key (sk-...) in network command — use keychain.sh, not hardcoded keys"
+    fi
+    if echo "$COMMAND" | grep -qE '(ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36}'; then
+        block "SECRET_EXFIL" "GitHub token in network command — use keychain.sh, not hardcoded keys"
+    fi
+    if echo "$COMMAND" | grep -qE 'sk-ant-api[0-9]{2}-[A-Za-z0-9_-]{10,}'; then
+        block "SECRET_EXFIL" "Anthropic API key in network command — use keychain.sh, not hardcoded keys"
+    fi
+    if echo "$COMMAND" | grep -qE 'xox[bpas]-[0-9]{5,}-[0-9]{5,}-[A-Za-z0-9]+'; then
+        block "SECRET_EXFIL" "Slack token in network command — use keychain.sh, not hardcoded keys"
     fi
 fi
 

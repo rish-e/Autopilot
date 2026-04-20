@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS procedures (
     deprecated      INTEGER DEFAULT 0,
     deprecated_reason TEXT,
     version         INTEGER DEFAULT 1,
+    content_hash    TEXT,
+    integrity_status TEXT DEFAULT 'unverified',
     created_at      REAL NOT NULL DEFAULT (unixepoch('subsec')),
     updated_at      REAL NOT NULL DEFAULT (unixepoch('subsec'))
 );
@@ -239,6 +241,47 @@ class AutopilotMemory:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self):
+        """Apply incremental schema migrations (idempotent). Safe to run on every init."""
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(procedures)").fetchall()}
+        if "content_hash" not in cols:
+            self.db.execute("ALTER TABLE procedures ADD COLUMN content_hash TEXT")
+            self.db.execute("ALTER TABLE procedures ADD COLUMN integrity_status TEXT DEFAULT 'unverified'")
+            self.db.commit()
+
+    @staticmethod
+    def _compute_procedure_hash(name: str, task_pattern: str, steps_json: str) -> str:
+        """SHA256 over canonical procedure content. Detects memory poisoning across sessions."""
+        return hashlib.sha256(
+            f"{name}\x00{task_pattern}\x00{steps_json}".encode()
+        ).hexdigest()
+
+    def _verify_procedure_integrity(self, row: dict) -> bool:
+        """Verify content_hash matches stored procedure data.
+
+        If the hash mismatches (memory poisoning), marks the procedure quarantined
+        and returns False so callers exclude it from results.
+        """
+        stored_hash = row.get("content_hash")
+        if not stored_hash:
+            return True  # Pre-migration data — no hash yet, allow through
+        expected = self._compute_procedure_hash(
+            row["name"], row["task_pattern"], row["steps_json"]
+        )
+        if stored_hash != expected:
+            self.db.execute("""
+                UPDATE procedures SET
+                    integrity_status = 'quarantined',
+                    deprecated = 1,
+                    deprecated_reason = 'integrity check failed — possible memory poisoning',
+                    updated_at = unixepoch('subsec')
+                WHERE name = ?
+            """, (row["name"],))
+            self.db.commit()
+            return False
+        return True
 
     # ════════════════════════════════════════════════════════════════════════
     # TRACES
@@ -304,10 +347,12 @@ class AutopilotMemory:
         Two-tier discovery: summary (short) is used for quick listing,
         task_pattern (full) for detailed matching.
         """
+        steps_json = json.dumps(steps)
+        content_hash = self._compute_procedure_hash(name, task_pattern, steps_json)
         self.db.execute("""
             INSERT INTO procedures (name, summary, task_pattern, services, domains,
-                                    steps_json, parent_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    steps_json, parent_id, content_hash, integrity_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ok')
             ON CONFLICT(name) DO UPDATE SET
                 task_pattern = excluded.task_pattern,
                 summary = COALESCE(excluded.summary, procedures.summary),
@@ -315,6 +360,8 @@ class AutopilotMemory:
                 services = COALESCE(excluded.services, procedures.services),
                 domains = COALESCE(excluded.domains, procedures.domains),
                 parent_id = COALESCE(excluded.parent_id, procedures.parent_id),
+                content_hash = excluded.content_hash,
+                integrity_status = 'ok',
                 deprecated = 0,
                 deprecated_reason = NULL,
                 consec_fails = 0,
@@ -324,7 +371,7 @@ class AutopilotMemory:
             name, summary, task_pattern,
             json.dumps(services) if services else None,
             json.dumps(domains) if domains else None,
-            json.dumps(steps), parent_id
+            steps_json, parent_id, content_hash
         ))
         self.db.commit()
 
@@ -343,7 +390,12 @@ class AutopilotMemory:
             WHERE name = ? AND success_count >= 3
             AND (success_count * 1.0 / NULLIF(success_count + fail_count, 0)) >= 0.8
         """, (name,)).fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        row_dict = dict(row)
+        if not self._verify_procedure_integrity(row_dict):
+            return None
+        return row_dict
 
     def list_skills(self) -> list[dict]:
         """List all procedures that qualify as reusable skills."""
@@ -395,7 +447,12 @@ class AutopilotMemory:
             ORDER BY success_rate DESC, success_count DESC
             LIMIT 5
         """, params + [min_success_rate]).fetchall()
-        return [dict(r) for r in rows]
+        verified = []
+        for r in rows:
+            row_dict = dict(r)
+            if self._verify_procedure_integrity(row_dict):
+                verified.append(row_dict)
+        return verified
 
     def record_procedure_run(self, name: str, success: bool,
                              duration_ms: int = 0, cost_usd: float = 0):
