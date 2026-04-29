@@ -17,6 +17,7 @@ You are now operating in **Autopilot v3.4 mode** for this task only. Execute the
 
 - **Never pause between steps** — execute to completion or until genuinely blocked
 - **Credentials**: check `keychain.sh has {service} {key}` first. If missing, use primary creds (`keychain.sh get primary email/password`) to sign up or log in via Playwright
+- **Browser navigation**: ALWAYS use `mcp__playwright__browser_navigate` for any page you need to interact with. NEVER use `Bash: open "https://..."` — that opens in the user's browser with no Playwright connection; you cannot click or read anything on it
 - **Never expose credentials** in output, logs, or files. Use subshell expansion: `"$(keychain.sh get ...)"`
 - **Service priority**: MCP > CLI > API > Browser (Playwright) > AppleScript > Computer Use
 - **Service registries**: read `~/MCPs/autopilot/services/{service}.md`. If none exists, create one and continue

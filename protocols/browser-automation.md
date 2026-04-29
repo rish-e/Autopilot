@@ -26,6 +26,19 @@ Use Computer Use for (ONLY these cases):
 - **NEVER** use Computer Use as a fallback when Playwright selectors break — fix the selectors instead
 - **NEVER** use Computer Use for visual verification of web pages — use Playwright screenshots
 
+### Critical Rule: `open` vs `browser_navigate`
+
+**NEVER use the `open` shell command to navigate to a page you need to interact with.**
+
+| Command | What it does | Can Playwright interact? |
+|---------|-------------|--------------------------|
+| `Bash: open "https://..."` | Opens in user's default browser (Safari/Chrome) — NO CDP connection | **NO** |
+| `mcp__playwright__browser_navigate` | Opens in Playwright-controlled Chrome via CDP on port 9222 | **YES** |
+
+Rule: if you need to click, fill, snapshot, or read anything on the page → use `browser_navigate`. The `open` command is only appropriate when the sole goal is to *show the user a URL* with no further automation.
+
+---
+
 ### Browser Automation Steps
 
 When the browser IS needed:

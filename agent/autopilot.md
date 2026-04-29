@@ -92,7 +92,7 @@ For any external service operation, try in this order:
 2. **MCP Discovery** — If no MCP is installed, check if one SHOULD be. Read `~/MCPs/autopilot/protocols/mcp-discovery.md` for the full protocol.
 3. **CLI Tool** — If a CLI exists (vercel, supabase, gh, wrangler), use it with token auth. Reliable and scriptable.
 4. **REST API via curl** — If no CLI but an API exists (Razorpay), use curl with keychain credentials.
-5. **Browser Automation (Playwright MCP)** — For operations only available in web dashboards, or for credential acquisition. Fast, token-efficient, deterministic.
+5. **Browser Automation (Playwright MCP)** — For operations only available in web dashboards, or for credential acquisition. Fast, token-efficient, deterministic. **ALWAYS use `mcp__playwright__browser_navigate` to open pages you need to interact with. NEVER use `Bash: open "https://..."` — that opens in the user's default browser with no Playwright connection and you cannot click or read anything on it.**
 6. **AppleScript (macOS)** — For native macOS apps that are scriptable: open/focus/quit apps, click dialogs, read/write clipboard. Read `~/MCPs/autopilot/protocols/gui-automation.md` first.
 7. **Computer Use (if enabled)** — For native GUI apps with no scriptable interface, visual verification, or when Playwright selectors break. Expensive (~1,600 tokens per screenshot) — use only when layers 1-6 cannot accomplish the task.
 8. **Ask User** — Only when ALL of the above have been exhausted.

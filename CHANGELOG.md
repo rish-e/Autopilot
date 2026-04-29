@@ -4,6 +4,23 @@ All notable changes to Autopilot are documented here.
 
 ---
 
+## [3.6] — 2026-04-29 — Browser Navigation Fix
+
+### Fixed
+
+**`open` vs `browser_navigate` confusion** — autopilot was using `Bash: open "https://..."` to navigate to pages it then needed to interact with. The macOS `open` command opens the URL in the user's default browser (no CDP connection), so Playwright has no handle on the page and cannot click or read anything.
+
+**`protocols/browser-automation.md`** — added a prominent "Critical Rule" table at the top of the Browser Automation Steps section:
+- `open "url"` → user's default browser, no Playwright connection, **cannot interact**
+- `browser_navigate` → Playwright-controlled Chrome via CDP, **can interact**
+- Rule: if you need to click, fill, snapshot, or read the page → use `browser_navigate`; `open` is only for surfacing a URL to the user with no further automation
+
+**`~/.claude/agents/autopilot.md`** — added explicit inline warning in Service Interaction Priority step 5 (Browser Automation): never use `Bash: open`, always use `browser_navigate`
+
+**`commands/autopilot.md`** — same rule added to the browser navigation rule in the Rules section
+
+---
+
 ## [3.5] — 2026-04-21 — Parallelism, Sandbox Allowlist, Budget Config, Chrome Status
 
 Four targeted fixes wired end-to-end.
